@@ -1,0 +1,197 @@
+'use client';
+
+import { motion } from 'framer-motion';
+import { formatCurrency } from '@/lib/utils';
+import {
+  ClipboardList, Clock, CheckCircle, DollarSign,
+  Star, TrendingUp, AlertCircle, ArrowUpRight,
+  Timer, Target, Zap, Award
+} from 'lucide-react';
+
+const ACTIVE_ORDERS = [
+  { id: 'ORD-001', title: 'Skripsi BAB 3 - Metodologi Penelitian', deadline: '2025-01-15', progress: 70, price: 350000, priority: 'high' },
+  { id: 'ORD-002', title: 'Tugas Coding Python - Machine Learning', deadline: '2025-01-18', progress: 30, price: 200000, priority: 'medium' },
+  { id: 'ORD-003', title: 'Makalah Hukum Bisnis', deadline: '2025-01-20', progress: 10, price: 150000, priority: 'low' },
+];
+
+export default function JokiDashboardPage() {
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Order Aktif', value: '3', icon: ClipboardList, color: 'from-blue-500 to-indigo-500', sub: '2 mendesak' },
+          { label: 'Selesai Bulan Ini', value: '12', icon: CheckCircle, color: 'from-green-500 to-emerald-500', sub: '+3 dari bulan lalu' },
+          { label: 'Komisi Bulan Ini', value: formatCurrency(4200000), icon: DollarSign, color: 'from-purple-500 to-pink-500', sub: '70% rate' },
+          { label: 'Rating', value: '4.9', icon: Star, color: 'from-yellow-500 to-amber-500', sub: '45 reviews' },
+        ].map((stat, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className="glass rounded-2xl p-5"
+          >
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
+              <stat.icon className="w-5 h-5 text-white" />
+            </div>
+            <p className="text-xl font-bold">{stat.value}</p>
+            <p className="text-xs text-muted mt-1">{stat.label}</p>
+            <p className="text-[10px] text-accent mt-0.5">{stat.sub}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Performance Ring */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass rounded-2xl p-6"
+        >
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5 text-accent" />
+            Performa Minggu Ini
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-4 bg-surface-2 rounded-xl">
+              <div className="w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center mx-auto mb-2">
+                <span className="text-lg font-bold text-accent">96%</span>
+              </div>
+              <p className="text-xs text-muted">On-Time Rate</p>
+            </div>
+            <div className="text-center p-4 bg-surface-2 rounded-xl">
+              <div className="w-16 h-16 rounded-full border-4 border-primary flex items-center justify-center mx-auto mb-2">
+                <span className="text-lg font-bold text-primary-light">98%</span>
+              </div>
+              <p className="text-xs text-muted">Quality Score</p>
+            </div>
+          </div>
+          <div className="mt-4 p-3 bg-accent/5 border border-accent/20 rounded-xl">
+            <p className="text-xs text-accent flex items-center gap-1.5">
+              <Award className="w-4 h-4" />
+              Kamu termasuk Top 3 Joki bulan ini! 🎉
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Active Orders */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="lg:col-span-2 glass rounded-2xl p-6"
+        >
+          <h3 className="font-semibold mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-primary-light" />
+            Order Aktif
+          </h3>
+          <div className="space-y-3">
+            {ACTIVE_ORDERS.map((order, i) => (
+              <motion.div
+                key={order.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + i * 0.1 }}
+                className="p-4 bg-surface-2 rounded-xl border border-border hover:border-primary/20 transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-xs text-muted">{order.id}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                        order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
+                        order.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
+                        'bg-green-500/10 text-green-400'
+                      }`}>
+                        {order.priority === 'high' ? 'Mendesak' : order.priority === 'medium' ? 'Normal' : 'Santai'}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium">{order.title}</p>
+                  </div>
+                  <span className="text-sm font-bold text-accent-green">{formatCurrency(order.price)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted mb-2">
+                  <span className="flex items-center gap-1">
+                    <Timer className="w-3 h-3" />
+                    Deadline: {order.deadline}
+                  </span>
+                  <span>{order.progress}%</span>
+                </div>
+                <div className="h-2 bg-surface rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${order.progress}%` }}
+                    transition={{ delay: 0.5 + i * 0.1, duration: 0.5 }}
+                    className={`h-full rounded-full ${
+                      order.progress >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                      order.progress >= 30 ? 'bg-gradient-to-r from-primary to-primary-light' :
+                      'bg-gradient-to-r from-yellow-500 to-orange-400'
+                    }`}
+                  />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Recent Activity & Notifications */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="glass rounded-2xl p-6"
+        >
+          <h3 className="font-semibold mb-4">Aktivitas Terakhir</h3>
+          <div className="space-y-3">
+            {[
+              { text: 'Upload hasil ORD-098', time: '2 jam lalu', icon: CheckCircle, color: 'text-green-400' },
+              { text: 'Chat baru dari Ahmad Rizki', time: '3 jam lalu', icon: AlertCircle, color: 'text-blue-400' },
+              { text: 'Order baru di-assign: ORD-003', time: '5 jam lalu', icon: ClipboardList, color: 'text-purple-400' },
+              { text: 'Revisi diminta untuk ORD-095', time: '1 hari lalu', icon: AlertCircle, color: 'text-yellow-400' },
+              { text: 'Komisi Rp 350.000 masuk', time: '2 hari lalu', icon: DollarSign, color: 'text-accent-green' },
+            ].map((activity, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-surface-2 rounded-xl">
+                <activity.icon className={`w-4 h-4 ${activity.color} flex-shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{activity.text}</p>
+                  <p className="text-xs text-muted">{activity.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="glass rounded-2xl p-6"
+        >
+          <h3 className="font-semibold mb-4">Pendapatan 6 Bulan</h3>
+          <div className="space-y-3">
+            {[
+              { month: 'Januari', amount: 4200000, orders: 12 },
+              { month: 'Desember', amount: 3800000, orders: 10 },
+              { month: 'November', amount: 3500000, orders: 9 },
+              { month: 'Oktober', amount: 3200000, orders: 8 },
+              { month: 'September', amount: 2800000, orders: 7 },
+              { month: 'Agustus', amount: 2500000, orders: 6 },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-surface-2 rounded-xl">
+                <div>
+                  <p className="text-sm font-medium">{item.month}</p>
+                  <p className="text-xs text-muted">{item.orders} orders</p>
+                </div>
+                <span className="text-sm font-bold text-accent-green">{formatCurrency(item.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
