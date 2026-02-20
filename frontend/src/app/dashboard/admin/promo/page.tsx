@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MOCK_VOUCHERS } from '@/lib/data';
+import { apiGetVouchers, apiCreateVoucher, apiUpdateVoucher, apiDeleteVoucher } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import {
   Gift, Plus, Tag, Percent, Users, Copy, Edit,
@@ -11,6 +11,94 @@ import {
 
 export default function PromoPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [vouchers, setVouchers] = useState<Record<string, unknown>[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState({
+    code: '',
+    discount_percent: 0,
+    max_discount: 0,
+    min_order: 0,
+    max_usage: 100,
+    valid_until: '',
+  });
+
+  useEffect(() => {
+    async function load() {
+      const res = await apiGetVouchers({ includeInactive: true });
+      if (res.success) setVouchers(res.data as Record<string, unknown>[]);
+    }
+    load();
+  }, []);
+
+  const stats = {
+    active: vouchers.filter((v) => v.is_active).length,
+    usage: vouchers.reduce((sum, v) => sum + Number(v.usage_count ?? 0), 0),
+    totalDiscount: vouchers.reduce((sum, v) => sum + Number(v.max_discount ?? 0), 0),
+  };
+
+  async function handleCreate() {
+    try {
+      setIsSaving(true);
+      const payload = {
+        code: form.code.trim().toUpperCase(),
+        discount_percent: Number(form.discount_percent) || 0,
+        max_discount: Number(form.max_discount) || 0,
+        min_order: Number(form.min_order) || 0,
+        max_usage: Number(form.max_usage) || 0,
+        valid_until: form.valid_until,
+      };
+
+      if (!payload.code || !payload.valid_until) {
+        alert('Kode dan tanggal berlaku wajib diisi');
+        return;
+      }
+
+      const res = await apiCreateVoucher(payload);
+      if (!res.success) {
+        alert(res.error || 'Gagal membuat voucher');
+        return;
+      }
+
+      setVouchers((prev) => [res.data as Record<string, unknown>, ...prev]);
+      setShowCreateModal(false);
+      setForm({ code: '', discount_percent: 0, max_discount: 0, min_order: 0, max_usage: 100, valid_until: '' });
+    } catch (error) {
+      console.error(error);
+      alert('Terjadi kesalahan saat membuat voucher');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleToggle(id: string, isActive: boolean) {
+    try {
+      const res = await apiUpdateVoucher(id, { is_active: !isActive });
+      if (!res.success) {
+        alert(res.error || 'Gagal mengubah status voucher');
+        return;
+      }
+      const data = res.data as Record<string, unknown>;
+      setVouchers((prev) => prev.map((v) => (v.id === id ? data : v)));
+    } catch (error) {
+      console.error(error);
+      alert('Terjadi kesalahan saat mengubah status voucher');
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('Nonaktifkan voucher ini?')) return;
+    try {
+      const res = await apiDeleteVoucher(id);
+      if (!res.success) {
+        alert(res.error || 'Gagal menonaktifkan voucher');
+        return;
+      }
+      setVouchers((prev) => prev.map((v) => (v.id === id ? { ...v, is_active: false } : v)));
+    } catch (error) {
+      console.error(error);
+      alert('Terjadi kesalahan saat menonaktifkan voucher');
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -31,9 +119,9 @@ export default function PromoPage() {
       {/* Promo Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Voucher Aktif', value: '5', icon: Tag, color: 'from-purple-500 to-pink-500' },
-          { label: 'Total Penggunaan', value: '234', icon: Users, color: 'from-blue-500 to-indigo-500' },
-          { label: 'Total Diskon', value: formatCurrency(12500000), icon: Percent, color: 'from-orange-500 to-red-500' },
+          { label: 'Voucher Aktif', value: String(stats.active), icon: Tag, color: 'from-purple-500 to-pink-500' },
+          { label: 'Total Penggunaan', value: String(stats.usage), icon: Users, color: 'from-blue-500 to-indigo-500' },
+          { label: 'Total Diskon Maks', value: formatCurrency(stats.totalDiscount), icon: Percent, color: 'from-orange-500 to-red-500' },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -55,9 +143,9 @@ export default function PromoPage() {
       <div className="glass rounded-2xl p-6">
         <h3 className="font-semibold mb-6">Daftar Voucher</h3>
         <div className="space-y-4">
-          {MOCK_VOUCHERS.map((voucher, i) => (
+          {vouchers.map((voucher, i) => (
             <motion.div
-              key={voucher.id}
+              key={voucher.id as string}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
@@ -69,28 +157,34 @@ export default function PromoPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono font-bold text-primary-light">{voucher.code}</span>
+                    <span className="font-mono font-bold text-primary-light">{voucher.code as string}</span>
                     <button className="p-1 hover:bg-surface rounded transition-colors">
                       <Copy className="w-3 h-3 text-muted" />
                     </button>
                   </div>
                   <p className="text-sm text-muted">
-                    Diskon {voucher.discount_percent}% • Min. order {formatCurrency(voucher.min_order)} • Maks. {formatCurrency(voucher.max_discount)}
+                    Diskon {voucher.discount_percent as number}% • Min. order {formatCurrency(voucher.min_order as number)} • Maks. {formatCurrency(voucher.max_discount as number)}
                   </p>
                   <p className="text-xs text-muted mt-1">
-                    Digunakan {voucher.usage_count}/{voucher.max_usage} • Berlaku s/d {voucher.valid_until}
+                    Digunakan {voucher.usage_count as number}/{voucher.max_usage as number} • Berlaku s/d {voucher.valid_until ? new Date(voucher.valid_until as string).toLocaleDateString('id-ID') : '-'}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <button className={`p-2 rounded-lg transition-colors ${voucher.is_active ? 'text-green-400' : 'text-muted'}`}>
+                <button
+                  onClick={() => handleToggle(voucher.id as string, Boolean(voucher.is_active))}
+                  className={`p-2 rounded-lg transition-colors ${voucher.is_active ? 'text-green-400' : 'text-muted'}`}
+                >
                   {voucher.is_active ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
                 </button>
                 <button className="p-2 hover:bg-surface rounded-lg transition-colors">
                   <Edit className="w-4 h-4 text-muted" />
                 </button>
-                <button className="p-2 hover:bg-surface rounded-lg transition-colors hover:text-red-400">
+                <button
+                  onClick={() => handleDelete(voucher.id as string)}
+                  className="p-2 hover:bg-surface rounded-lg transition-colors hover:text-red-400"
+                >
                   <Trash2 className="w-4 h-4 text-muted" />
                 </button>
               </div>
@@ -173,38 +267,77 @@ export default function PromoPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Kode Voucher</label>
-                <input type="text" placeholder="PROMO2026" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary/50 uppercase" />
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                  placeholder="PROMO2026"
+                  className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary/50 uppercase"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Diskon (%)</label>
-                  <input type="number" placeholder="20" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input
+                    type="number"
+                    value={form.discount_percent}
+                    onChange={(e) => setForm({ ...form, discount_percent: Number(e.target.value) })}
+                    placeholder="20"
+                    className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Maks. Diskon</label>
-                  <input type="number" placeholder="50000" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input
+                    type="number"
+                    value={form.max_discount}
+                    onChange={(e) => setForm({ ...form, max_discount: Number(e.target.value) })}
+                    placeholder="50000"
+                    className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Min. Order</label>
-                  <input type="number" placeholder="100000" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input
+                    type="number"
+                    value={form.min_order}
+                    onChange={(e) => setForm({ ...form, min_order: Number(e.target.value) })}
+                    placeholder="100000"
+                    className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Maks. Penggunaan</label>
-                  <input type="number" placeholder="500" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input
+                    type="number"
+                    value={form.max_usage}
+                    onChange={(e) => setForm({ ...form, max_usage: Number(e.target.value) })}
+                    placeholder="500"
+                    className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                  />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Berlaku Sampai</label>
-                <input type="date" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                <input
+                  type="date"
+                  value={form.valid_until}
+                  onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
+                  className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                />
               </div>
               <div className="flex gap-3 mt-6">
                 <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 bg-surface-2 border border-border rounded-xl hover:border-primary/30">
                   Batal
                 </button>
-                <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl font-medium hover:opacity-90">
-                  Buat Voucher
+                <button
+                  disabled={isSaving}
+                  onClick={handleCreate}
+                  className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl font-medium hover:opacity-90 disabled:opacity-60"
+                >
+                  {isSaving ? 'Menyimpan...' : 'Buat Voucher'}
                 </button>
               </div>
             </div>

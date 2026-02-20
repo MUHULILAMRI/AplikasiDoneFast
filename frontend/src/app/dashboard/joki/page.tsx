@@ -1,29 +1,48 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { apiJokiDashboard } from '@/lib/api';
 import {
   ClipboardList, Clock, CheckCircle, DollarSign,
   Star, TrendingUp, AlertCircle, ArrowUpRight,
   Timer, Target, Zap, Award
 } from 'lucide-react';
 
-const ACTIVE_ORDERS = [
-  { id: 'ORD-001', title: 'Skripsi BAB 3 - Metodologi Penelitian', deadline: '2025-01-15', progress: 70, price: 350000, priority: 'high' },
-  { id: 'ORD-002', title: 'Tugas Coding Python - Machine Learning', deadline: '2025-01-18', progress: 30, price: 200000, priority: 'medium' },
-  { id: 'ORD-003', title: 'Makalah Hukum Bisnis', deadline: '2025-01-20', progress: 10, price: 150000, priority: 'low' },
-];
-
 export default function JokiDashboardPage() {
+  const [activeOrders, setActiveOrders] = useState<Record<string, unknown>[]>([]);
+  const [dashStats, setDashStats] = useState({ active: 0, completed: 0, commission: 0, rating: 0, reviews: 0 });
+
+  useEffect(() => {
+    async function load() {
+      const res = await apiJokiDashboard();
+      if (res.success) {
+        const d = res.data as Record<string, unknown>;
+        const s = (d.stats ?? {}) as Record<string, number>;
+        const profile = (d.profile ?? {}) as Record<string, unknown>;
+        setActiveOrders((d.recent_orders ?? []) as Record<string, unknown>[]);
+        setDashStats({
+          active: s.active_orders ?? 0,
+          completed: s.completed_this_month ?? s.total_completed ?? 0,
+          commission: s.monthly_commission ?? 0,
+          rating: Number(profile.rating ?? 0),
+          reviews: 0,
+        });
+      }
+    }
+    load();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Order Aktif', value: '3', icon: ClipboardList, color: 'from-blue-500 to-indigo-500', sub: '2 mendesak' },
-          { label: 'Selesai Bulan Ini', value: '12', icon: CheckCircle, color: 'from-green-500 to-emerald-500', sub: '+3 dari bulan lalu' },
-          { label: 'Komisi Bulan Ini', value: formatCurrency(4200000), icon: DollarSign, color: 'from-purple-500 to-pink-500', sub: '70% rate' },
-          { label: 'Rating', value: '4.9', icon: Star, color: 'from-yellow-500 to-amber-500', sub: '45 reviews' },
+          { label: 'Order Aktif', value: String(dashStats.active), icon: ClipboardList, color: 'from-blue-500 to-indigo-500', sub: '' },
+          { label: 'Selesai Bulan Ini', value: String(dashStats.completed), icon: CheckCircle, color: 'from-green-500 to-emerald-500', sub: '' },
+          { label: 'Komisi Bulan Ini', value: formatCurrency(dashStats.commission), icon: DollarSign, color: 'from-purple-500 to-pink-500', sub: '' },
+          { label: 'Rating', value: String(dashStats.rating || '-'), icon: Star, color: 'from-yellow-500 to-amber-500', sub: `${dashStats.reviews} reviews` },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -88,9 +107,9 @@ export default function JokiDashboardPage() {
             Order Aktif
           </h3>
           <div className="space-y-3">
-            {ACTIVE_ORDERS.map((order, i) => (
+            {activeOrders.map((order: Record<string, unknown>, i: number) => (
               <motion.div
-                key={order.id}
+                key={order.id as string}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 + i * 0.1 }}
@@ -99,7 +118,7 @@ export default function JokiDashboardPage() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-xs text-muted">{order.id}</span>
+                      <span className="font-mono text-xs text-muted">{(order.order_number as string) || (order.id as string)}</span>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                         order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
                         order.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
@@ -108,25 +127,25 @@ export default function JokiDashboardPage() {
                         {order.priority === 'high' ? 'Mendesak' : order.priority === 'medium' ? 'Normal' : 'Santai'}
                       </span>
                     </div>
-                    <p className="text-sm font-medium">{order.title}</p>
+                    <p className="text-sm font-medium">{order.title as string}</p>
                   </div>
-                  <span className="text-sm font-bold text-accent-green">{formatCurrency(order.price)}</span>
+                  <span className="text-sm font-bold text-accent-green">{formatCurrency(order.price as number)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted mb-2">
                   <span className="flex items-center gap-1">
                     <Timer className="w-3 h-3" />
-                    Deadline: {order.deadline}
+                    Deadline: {order.deadline ? formatDate(order.deadline as string) : '-'}
                   </span>
-                  <span>{order.progress}%</span>
+                  <span>{order.progress as number ?? 0}%</span>
                 </div>
                 <div className="h-2 bg-surface rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${order.progress}%` }}
+                    animate={{ width: `${order.progress as number ?? 0}%` }}
                     transition={{ delay: 0.5 + i * 0.1, duration: 0.5 }}
                     className={`h-full rounded-full ${
-                      order.progress >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
-                      order.progress >= 30 ? 'bg-gradient-to-r from-primary to-primary-light' :
+                      (order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                      (order.progress as number) >= 30 ? 'bg-gradient-to-r from-primary to-primary-light' :
                       'bg-gradient-to-r from-yellow-500 to-orange-400'
                     }`}
                   />

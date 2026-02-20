@@ -4,44 +4,48 @@ import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { apiAIChatbot } from '@/lib/api';
 import {
   Send, Search, Paperclip, Smile, ArrowLeft,
   Phone, MoreVertical, CircleDot, MessageSquare, Bot
 } from 'lucide-react';
 
-const MESSAGES = [
-  { id: 1, sender: 'bot', text: 'Halo! 👋 Selamat datang di DoneFast. Saya AI Assistant yang siap membantu kamu. Mau tanya apa?', time: '14:00' },
-  { id: 2, sender: 'user', text: 'Halo, saya mau order joki skripsi', time: '14:01' },
-  { id: 3, sender: 'bot', text: 'Baik! Untuk joki skripsi, kami punya beberapa pilihan:\n\n📝 Skripsi Full (BAB 1-5) - mulai Rp 1.500.000\n📄 Per BAB - mulai Rp 250.000\n🔍 Revisi - mulai Rp 100.000\n\nMau pilih yang mana?', time: '14:01' },
-  { id: 4, sender: 'user', text: 'Per BAB aja, BAB 3 Metodologi', time: '14:02' },
-  { id: 5, sender: 'bot', text: 'Siap! Untuk BAB 3 Metodologi:\n\n💰 Harga: Rp 350.000\n⏰ Estimasi: 3-5 hari\n📊 Termasuk: analisis data & referensi\n\nMau langsung order? Klik tombol di bawah atau kunjungi halaman Order.', time: '14:02' },
-];
-
 function ChatContent() {
   const searchParams = useSearchParams();
   const [message, setMessage] = useState('');
-  const [chatMessages, setChatMessages] = useState(MESSAGES);
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, sender: 'bot', text: 'Halo! 👋 Selamat datang di DoneFast. Saya AI Assistant yang siap membantu kamu. Mau tanya apa?', time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) },
+  ]);
+  const [isBotTyping, setIsBotTyping] = useState(false);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!message.trim()) return;
-    const newMsg = {
+    const userMsg = {
       id: chatMessages.length + 1,
       sender: 'user',
       text: message,
       time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
     };
-    setChatMessages(prev => [...prev, newMsg]);
+    setChatMessages(prev => [...prev, userMsg]);
+    const userText = message;
     setMessage('');
+    setIsBotTyping(true);
 
-    // Simulate bot reply
-    setTimeout(() => {
-      setChatMessages(prev => [...prev, {
-        id: prev.length + 1,
-        sender: 'bot',
-        text: 'Terima kasih atas pertanyaannya! Tim kami akan segera membantu. Kamu juga bisa langsung chat dengan admin melalui WhatsApp di +6281234567890. 💬',
-        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      }]);
-    }, 1500);
+    const res = await apiAIChatbot(userText);
+    setIsBotTyping(false);
+
+    let botText = 'Maaf, saya belum bisa menjawab itu. Silakan hubungi admin kami.';
+    if (res.success) {
+      const d = res.data as Record<string, unknown>;
+      botText = (d.response as string) || (d.message as string) || botText;
+    }
+
+    setChatMessages(prev => [...prev, {
+      id: prev.length + 1,
+      sender: 'bot',
+      text: botText,
+      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    }]);
   };
 
   return (

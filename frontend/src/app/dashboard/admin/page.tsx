@@ -1,54 +1,14 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MOCK_STATS, MOCK_ORDERS, MOCK_JOKI } from '@/lib/data';
+import { apiAdminDashboard } from '@/lib/api';
 import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils';
 import {
   ShoppingBag, DollarSign, Users, TrendingUp,
   Clock, CheckCircle2, AlertCircle, ArrowUpRight,
   ArrowDownRight, BarChart3, Activity
 } from 'lucide-react';
-
-const stats = MOCK_STATS;
-
-const statCards = [
-  {
-    label: 'Order Hari Ini',
-    value: stats.total_orders_today,
-    format: 'number',
-    change: '+12%',
-    positive: true,
-    icon: ShoppingBag,
-    gradient: 'from-blue-500 to-indigo-500',
-  },
-  {
-    label: 'Income Hari Ini',
-    value: stats.total_income_today,
-    format: 'currency',
-    change: '+23%',
-    positive: true,
-    icon: DollarSign,
-    gradient: 'from-green-500 to-emerald-500',
-  },
-  {
-    label: 'User Aktif',
-    value: stats.active_users,
-    format: 'number',
-    change: '+8%',
-    positive: true,
-    icon: Users,
-    gradient: 'from-purple-500 to-pink-500',
-  },
-  {
-    label: 'Income Bulan Ini',
-    value: stats.total_income_month,
-    format: 'currency',
-    change: '+45%',
-    positive: true,
-    icon: TrendingUp,
-    gradient: 'from-cyan-500 to-blue-500',
-  },
-];
 
 const monthlyData = [
   { month: 'Sep', value: 45 },
@@ -60,6 +20,57 @@ const monthlyData = [
 ];
 
 export default function AdminDashboardPage() {
+  const [stats, setStats] = useState<Record<string, number>>({
+    total_orders_today: 0, total_income_today: 0, active_users: 0, total_income_month: 0,
+    pending_orders: 0, in_progress_orders: 0, completed_orders: 0, total_profit_month: 0,
+  });
+  const [recentOrders, setRecentOrders] = useState<Record<string, unknown>[]>([]);
+  const [teamMembers, setTeamMembers] = useState<Record<string, unknown>[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const res = await apiAdminDashboard();
+      if (res.success) {
+        const d = res.data as Record<string, unknown>;
+        const overview = (d.overview ?? {}) as Record<string, number>;
+        const orderSummary = (d.order_summary ?? {}) as Record<string, number>;
+        setStats({
+          total_orders_today: overview.monthly_orders ?? overview.total_orders ?? 0,
+          total_income_today: overview.monthly_revenue ?? overview.total_revenue ?? 0,
+          active_users: overview.total_customers ?? overview.new_customers ?? 0,
+          total_income_month: overview.monthly_revenue ?? 0,
+          pending_orders: orderSummary.pending ?? 0,
+          in_progress_orders: orderSummary.in_progress ?? 0,
+          completed_orders: orderSummary.completed ?? 0,
+          total_profit_month: overview.monthly_revenue ?? 0,
+        });
+        if (d.recent_orders) {
+          const rawOrders = d.recent_orders as Record<string, unknown>[];
+          setRecentOrders(rawOrders.map(o => ({
+            ...o,
+            title: o.title ?? (o.service as Record<string, unknown>)?.name,
+            joki_id: (o.joki as Record<string, unknown>)?.id ?? o.joki_id,
+          })));
+        }
+        if (d.top_joki) {
+          const rawJoki = d.top_joki as Record<string, unknown>[];
+          setTeamMembers(rawJoki.map(j => ({
+            ...j,
+            name: (j.user as Record<string, unknown>)?.name ?? j.name,
+            total_completed: (j._count as Record<string, number>)?.orders ?? j.total_completed ?? 0,
+          })));
+        }
+      }
+    }
+    load();
+  }, []);
+
+  const statCards = [
+    { label: 'Order Hari Ini', value: stats.total_orders_today, format: 'number', change: '+12%', positive: true, icon: ShoppingBag, gradient: 'from-blue-500 to-indigo-500' },
+    { label: 'Income Hari Ini', value: stats.total_income_today, format: 'currency', change: '+23%', positive: true, icon: DollarSign, gradient: 'from-green-500 to-emerald-500' },
+    { label: 'User Aktif', value: stats.active_users, format: 'number', change: '+8%', positive: true, icon: Users, gradient: 'from-purple-500 to-pink-500' },
+    { label: 'Income Bulan Ini', value: stats.total_income_month, format: 'currency', change: '+45%', positive: true, icon: TrendingUp, gradient: 'from-cyan-500 to-blue-500' },
+  ];
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -202,30 +213,30 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_ORDERS.map((order) => (
-                <tr key={order.id} className="border-b border-border/50 hover:bg-surface-2/50 transition-colors">
+              {recentOrders.map((order: Record<string, unknown>) => (
+                <tr key={order.id as string} className="border-b border-border/50 hover:bg-surface-2/50 transition-colors">
                   <td className="py-4 pr-4">
-                    <span className="font-mono text-sm text-primary-light">{order.id}</span>
+                    <span className="font-mono text-sm text-primary-light">{(order.order_number as string) || (order.id as string)}</span>
                   </td>
                   <td className="py-4 pr-4">
-                    <p className="text-sm font-medium">{order.title}</p>
-                    <p className="text-xs text-muted mt-0.5">{order.description.substring(0, 40)}...</p>
+                    <p className="text-sm font-medium">{order.title as string}</p>
+                    <p className="text-xs text-muted mt-0.5">{(order.description as string)?.substring(0, 40)}...</p>
                   </td>
                   <td className="py-4 pr-4">
-                    <span className="text-sm font-medium">{formatCurrency(order.price)}</span>
+                    <span className="text-sm font-medium">{formatCurrency(order.price as number)}</span>
                   </td>
                   <td className="py-4 pr-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
-                      {getStatusLabel(order.status)}
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status as string)}`}>
+                      {getStatusLabel(order.status as string)}
                     </span>
                   </td>
                   <td className="py-4 pr-4">
-                    <span className="text-sm text-muted">{order.deadline}</span>
+                    <span className="text-sm text-muted">{order.deadline ? new Date(order.deadline as string).toLocaleDateString('id-ID') : '-'}</span>
                   </td>
                   <td className="py-4">
                     {order.joki_id ? (
                       <span className="text-sm">
-                        {MOCK_JOKI.find((j) => j.id === order.joki_id)?.name || 'Unassigned'}
+                        {(teamMembers.find((j) => j.id === order.joki_id) as Record<string, unknown>)?.name as string || 'Unassigned'}
                       </span>
                     ) : (
                       <span className="text-xs text-orange-400 font-medium">Belum assign</span>
@@ -253,27 +264,27 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {MOCK_JOKI.map((joki) => (
-            <div key={joki.id} className="p-4 bg-surface-2 rounded-xl border border-border hover:border-primary/30 transition-colors">
+          {teamMembers.map((joki) => (
+            <div key={joki.id as string} className="p-4 bg-surface-2 rounded-xl border border-border hover:border-primary/30 transition-colors">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-sm font-bold">
-                  {joki.name.charAt(0)}
+                  {(joki.name as string)?.charAt(0)}
                 </div>
                 <div>
-                  <p className="text-sm font-medium">{joki.name}</p>
+                  <p className="text-sm font-medium">{joki.name as string}</p>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-yellow-400">★</span>
-                    <span className="text-xs text-muted">{joki.rating}</span>
+                    <span className="text-xs text-muted">{joki.rating as number}</span>
                   </div>
                 </div>
                 <div className={`ml-auto w-2.5 h-2.5 rounded-full ${joki.is_available ? 'bg-green-400' : 'bg-red-400'}`} />
               </div>
               <div className="flex justify-between text-xs text-muted">
-                <span>{joki.total_completed} selesai</span>
-                <span>Komisi: {joki.commission_rate}%</span>
+                <span>{joki.total_completed as number} selesai</span>
+                <span>Komisi: {joki.commission_rate as number}%</span>
               </div>
               <div className="flex flex-wrap gap-1 mt-2">
-                {joki.skills.slice(0, 2).map((skill, i) => (
+                {((joki.skills as string[]) || []).slice(0, 2).map((skill: string, i: number) => (
                   <span key={i} className="px-2 py-0.5 rounded bg-primary/10 text-primary-light text-xs">
                     {skill}
                   </span>

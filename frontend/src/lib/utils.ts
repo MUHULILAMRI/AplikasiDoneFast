@@ -38,7 +38,7 @@ export function getStatusColor(status: string): string {
     completed: 'bg-green-500/20 text-green-400 border-green-500/30',
     cancelled: 'bg-red-500/20 text-red-400 border-red-500/30',
   };
-  return colors[status] || 'bg-gray-500/20 text-gray-400';
+  return colors[status.toLowerCase()] || 'bg-gray-500/20 text-gray-400';
 }
 
 export function getStatusLabel(status: string): string {
@@ -50,7 +50,7 @@ export function getStatusLabel(status: string): string {
     completed: 'Selesai',
     cancelled: 'Dibatalkan',
   };
-  return labels[status] || status;
+  return labels[status.toLowerCase()] || status;
 }
 
 export function getCategoryLabel(category: string): string {

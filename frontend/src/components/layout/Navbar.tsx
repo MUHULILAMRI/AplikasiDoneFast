@@ -9,7 +9,7 @@ import { useAppStore } from '@/store/useAppStore';
 const navLinks = [
   { label: 'Layanan', href: '/marketplace' },
   { label: 'Cara Kerja', href: '/#cara-kerja' },
-  { label: 'Harga', href: '/marketplace' },
+  { label: 'Harga', href: '/marketplace#pricing' },
   { label: 'Testimoni', href: '/#testimoni' },
 ];
 
@@ -80,7 +80,7 @@ export default function Navbar() {
             ) : (
               <>
                 <Link 
-                  href="/login"
+                  href="/login?force=1"
                   className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
                 >
                   Masuk

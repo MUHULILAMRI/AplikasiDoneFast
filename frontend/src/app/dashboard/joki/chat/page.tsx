@@ -1,31 +1,81 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { formatCurrency } from '@/lib/utils';
+import { apiGetOrders, apiGetMessages, apiSendMessage } from '@/lib/api';
 import {
   Send, Search, Paperclip, Smile, Phone, Video,
   MoreVertical, CircleDot, MessageSquare
 } from 'lucide-react';
 
-const CONVERSATIONS = [
-  { id: '1', name: 'Ahmad Rizki', avatar: '🧑‍🎓', lastMsg: 'Kapan selesai tugasnya?', time: '2 mnt', unread: 2, status: 'online', orderId: 'ORD-001' },
-  { id: '2', name: 'Siti Nurhaliza', avatar: '👩‍💻', lastMsg: 'File sudah saya upload ya', time: '1 jam', unread: 0, status: 'offline', orderId: 'ORD-002' },
-  { id: '3', name: 'Admin DoneFast', avatar: '🛡️', lastMsg: 'Order baru sudah di-assign', time: '3 jam', unread: 1, status: 'online', orderId: '' },
-];
-
-const MESSAGES = [
-  { id: 1, sender: 'customer', text: 'Halo, gimana progress skripsi saya?', time: '14:30' },
-  { id: 2, sender: 'joki', text: 'Halo kak! Progress sudah 70%. Bagian metodologi hampir selesai.', time: '14:31' },
-  { id: 3, sender: 'customer', text: 'Mantap! Ada yang perlu saya bantu?', time: '14:32' },
-  { id: 4, sender: 'joki', text: 'Bisa minta referensi jurnal tambahan untuk bagian kajian pustaka? 📚', time: '14:33' },
-  { id: 5, sender: 'customer', text: 'Oke, nanti saya kirim. Kapan selesai tugasnya?', time: '14:35' },
-];
+type Conversation = { id: string; name: string; avatar: string; lastMsg: string; time: string; unread: number; status: string; orderId: string };
+type Message = { id: string; sender: string; text: string; time: string };
 
 export default function JokiChatPage() {
-  const [selectedChat, setSelectedChat] = useState(CONVERSATIONS[0]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedChat, setSelectedChat] = useState<Conversation | null>(null);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      const res = await apiGetOrders({ limit: 20 });
+      if (res.success) {
+        const d = res.data as Record<string, unknown>;
+        const orders = (d.data ?? d) as Record<string, unknown>[];
+        const convs: Conversation[] = orders.map((o, i) => ({
+          id: String(i + 1),
+          name: (o.user as Record<string, unknown>)?.name as string ?? `Order ${o.id}`,
+          avatar: '👤',
+          lastMsg: (o.title as string) ?? '',
+          time: '',
+          unread: 0,
+          status: 'online',
+          orderId: (o.id as string) || (o.order_number as string),
+        }));
+        setConversations(convs);
+        if (convs.length > 0) {
+          setSelectedChat(convs[0]);
+          loadMessages(convs[0].orderId);
+        }
+      }
+    }
+    load();
+  }, []);
+
+  async function loadMessages(orderId: string) {
+    const res = await apiGetMessages(orderId);
+    if (res.success) {
+      const msgs = res.data as Record<string, unknown>[];
+      setMessages(msgs.map((m) => ({
+        id: m.id ? String(m.id) : crypto.randomUUID(),
+        sender: (m.sender_role as string)?.toLowerCase() ?? 'customer',
+        text: m.message as string,
+        time: new Date(m.created_at as string).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+      })));
+    }
+  }
+
+  async function handleSend() {
+    if (!message.trim() || !selectedChat) return;
+    try {
+      setIsSending(true);
+      const res = await apiSendMessage(selectedChat.orderId, message);
+      if (!res.success) {
+        alert(res.error || 'Gagal mengirim pesan');
+        return;
+      }
+      const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const newMsg: Message = { id: crypto.randomUUID(), sender: 'joki', text: message, time: now };
+      setMessages(prev => [...prev, newMsg]);
+      setConversations((prev) => prev.map((c) => c.id === selectedChat.id ? { ...c, lastMsg: message, time: now } : c));
+      setMessage('');
+    } finally {
+      setIsSending(false);
+    }
+  }
 
   return (
     <div className="h-[calc(100vh-8rem)]">
@@ -49,12 +99,12 @@ export default function JokiChatPage() {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {CONVERSATIONS.map((conv) => (
+            {conversations.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())).map((conv) => (
               <button
                 key={conv.id}
-                onClick={() => setSelectedChat(conv)}
+                onClick={() => { setSelectedChat(conv); loadMessages(conv.orderId); }}
                 className={`w-full flex items-center gap-3 p-4 hover:bg-surface-2 transition-colors ${
-                  selectedChat.id === conv.id ? 'bg-surface-2 border-l-2 border-accent' : ''
+                  selectedChat?.id === conv.id ? 'bg-surface-2 border-l-2 border-accent' : ''
                 }`}
               >
                 <div className="relative">
@@ -88,14 +138,14 @@ export default function JokiChatPage() {
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface flex items-center justify-center text-lg">
-                {selectedChat.avatar}
+              {selectedChat?.avatar}
               </div>
               <div>
-                <h3 className="font-semibold text-sm">{selectedChat.name}</h3>
+                <h3 className="font-semibold text-sm">{selectedChat?.name}</h3>
                 <p className="text-xs text-muted flex items-center gap-1">
-                  <CircleDot className={`w-3 h-3 ${selectedChat.status === 'online' ? 'text-accent-green' : 'text-muted'}`} />
-                  {selectedChat.status === 'online' ? 'Online' : 'Offline'}
-                  {selectedChat.orderId && <span className="font-mono ml-1">• {selectedChat.orderId}</span>}
+                  <CircleDot className={`w-3 h-3 ${selectedChat?.status === 'online' ? 'text-accent-green' : 'text-muted'}`} />
+                  {selectedChat?.status === 'online' ? 'Online' : 'Offline'}
+                  {selectedChat?.orderId && <span className="font-mono ml-1">• {selectedChat.orderId}</span>}
                 </p>
               </div>
             </div>
@@ -109,7 +159,7 @@ export default function JokiChatPage() {
             <div className="text-center mb-4">
               <span className="text-xs text-muted bg-surface-2 px-3 py-1 rounded-full">Hari ini</span>
             </div>
-            {MESSAGES.map((msg, i) => (
+            {messages.map((msg, i) => (
               <motion.div
                 key={msg.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -146,10 +196,14 @@ export default function JokiChatPage() {
               placeholder="Ketik pesan..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setMessage('')}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               className="flex-1 px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm placeholder:text-muted focus:outline-none focus:border-primary/50"
             />
-            <button className="p-3 bg-gradient-to-r from-accent to-primary text-white rounded-xl hover:opacity-90">
+            <button
+              onClick={handleSend}
+              disabled={isSending}
+              className="p-3 bg-gradient-to-r from-accent to-primary text-white rounded-xl hover:opacity-90 disabled:opacity-60"
+            >
               <Send className="w-5 h-5" />
             </button>
           </div>

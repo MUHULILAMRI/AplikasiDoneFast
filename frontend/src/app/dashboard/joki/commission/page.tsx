@@ -1,31 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/utils';
+import { apiJokiCommission } from '@/lib/api';
 import {
   DollarSign, TrendingUp, Calendar, Download,
   ArrowUpRight, Clock, CheckCircle, Wallet, CreditCard,
   ArrowDownLeft
 } from 'lucide-react';
 
-const COMMISSION_HISTORY = [
-  { id: 1, orderId: 'ORD-098', title: 'Website Portfolio React', amount: 350000, status: 'paid', date: '2025-01-10', type: 'commission' },
-  { id: 2, orderId: 'ORD-097', title: 'Skripsi BAB 2', amount: 280000, status: 'paid', date: '2025-01-08', type: 'commission' },
-  { id: 3, orderId: 'ORD-096', title: 'Tugas Database SQL', amount: 140000, status: 'paid', date: '2025-01-05', type: 'commission' },
-  { id: 4, orderId: 'ORD-095', title: 'Revisi Proposal Tesis', amount: 175000, status: 'pending', date: '2025-01-12', type: 'commission' },
-  { id: 5, orderId: 'ORD-001', title: 'Skripsi BAB 3', amount: 245000, status: 'pending', date: '2025-01-15', type: 'commission' },
-  { id: 6, orderId: '', title: 'Withdrawal ke DANA', amount: -500000, status: 'completed', date: '2025-01-07', type: 'withdrawal' },
-  { id: 7, orderId: '', title: 'Bonus Top Performer', amount: 100000, status: 'paid', date: '2025-01-01', type: 'bonus' },
-];
-
 export default function CommissionPage() {
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [commissionHistory, setCommissionHistory] = useState<Record<string, unknown>[]>([]);
+  const [totalEarned, setTotalEarned] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [availableBalance, setAvailableBalance] = useState(0);
+  const [withdrawn, setWithdrawn] = useState(0);
+  const [rate, setRate] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [avgPerOrder, setAvgPerOrder] = useState(0);
 
-  const totalEarned = 4200000;
-  const pendingAmount = 420000;
-  const availableBalance = 1250000;
-  const withdrawn = 2530000;
+  useEffect(() => {
+    async function load() {
+      const res = await apiJokiCommission();
+      if (res.success) {
+        const d = res.data as Record<string, unknown>;
+        const totalCommission = Number(d.total_commission ?? 0);
+        const totalRevenue = Number(d.total_revenue ?? 0);
+        const orders = Number(d.total_orders ?? 0);
+        const commissionRate = Number(d.commission_rate ?? 0);
+
+        setTotalEarned(totalCommission);
+        setPendingAmount(0);
+        setAvailableBalance(totalCommission);
+        setWithdrawn(0);
+        setRate(commissionRate);
+        setTotalOrders(orders);
+        setAvgPerOrder(orders > 0 ? Math.round(totalRevenue / orders) : 0);
+
+        if (d.monthly) {
+          setCommissionHistory((d.monthly as Record<string, unknown>[]).map((m, i) => ({
+            id: i,
+            orderId: '',
+            title: `Komisi ${m.month}`,
+            amount: Number(m.commission ?? 0),
+            status: 'paid',
+            date: String(m.month ?? ''),
+            type: 'commission',
+          })));
+        }
+      }
+    }
+    load();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -80,15 +108,15 @@ export default function CommissionPage() {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 bg-surface-2 rounded-xl border border-border text-center">
-            <p className="text-3xl font-bold text-accent">70%</p>
+            <p className="text-3xl font-bold text-accent">{rate}%</p>
             <p className="text-xs text-muted mt-1">Rate Komisi Kamu</p>
           </div>
           <div className="p-4 bg-surface-2 rounded-xl border border-border text-center">
-            <p className="text-3xl font-bold text-primary-light">52</p>
+            <p className="text-3xl font-bold text-primary-light">{totalOrders}</p>
             <p className="text-xs text-muted mt-1">Total Order Selesai</p>
           </div>
           <div className="p-4 bg-surface-2 rounded-xl border border-border text-center">
-            <p className="text-3xl font-bold text-accent-green">{formatCurrency(80769)}</p>
+            <p className="text-3xl font-bold text-accent-green">{formatCurrency(avgPerOrder)}</p>
             <p className="text-xs text-muted mt-1">Rata-rata per Order</p>
           </div>
         </div>
@@ -112,9 +140,9 @@ export default function CommissionPage() {
           </button>
         </div>
         <div className="space-y-3">
-          {COMMISSION_HISTORY.map((tx, i) => (
+          {commissionHistory.map((tx, i) => (
             <motion.div
-              key={tx.id}
+              key={tx.id as string}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 + i * 0.05 }}
@@ -131,16 +159,16 @@ export default function CommissionPage() {
                    <ArrowDownLeft className="w-5 h-5 text-green-400" />}
                 </div>
                 <div>
-                  <p className="text-sm font-medium">{tx.title}</p>
+                  <p className="text-sm font-medium">{tx.title as string}</p>
                   <p className="text-xs text-muted">
-                    {tx.orderId && <span className="font-mono">{tx.orderId} • </span>}
-                    {tx.date}
+                    {tx.orderId ? <span className="font-mono">{tx.orderId as string} • </span> : null}
+                    {tx.date as string}
                   </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className={`font-bold text-sm ${tx.amount > 0 ? 'text-accent-green' : 'text-red-400'}`}>
-                  {tx.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(tx.amount))}
+                <p className={`font-bold text-sm ${(tx.amount as number) > 0 ? 'text-accent-green' : 'text-red-400'}`}>
+                  {(tx.amount as number) > 0 ? '+' : ''}{formatCurrency(Math.abs(tx.amount as number))}
                 </p>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                   tx.status === 'paid' || tx.status === 'completed' ? 'bg-green-500/10 text-green-400' :

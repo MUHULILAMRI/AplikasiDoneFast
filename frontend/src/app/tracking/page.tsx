@@ -1,40 +1,107 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/utils';
+import { apiGetOrder, apiGetOrderTracking } from '@/lib/api';
 import {
   Package, CheckCircle, Clock, Truck, CreditCard,
   FileText, Star, MessageSquare, Download, Search,
   ArrowRight, User, Calendar, Shield
 } from 'lucide-react';
 
-const TRACKING_DATA = {
-  id: 'ORD-20250113-001',
-  service: 'Joki Skripsi - BAB 3 Metodologi',
-  customer: 'Ahmad Rizki',
-  joki: 'Alex Coder',
-  price: 350000,
-  orderDate: '2025-01-10',
-  deadline: '2025-01-15',
-  status: 'in_progress',
-  progress: 70,
-  timeline: [
-    { step: 'Order Dibuat', desc: 'Order berhasil dibuat dan pembayaran diterima', time: '10 Jan 2025, 09:30', done: true, icon: CreditCard },
-    { step: 'Dikonfirmasi', desc: 'Admin telah mengkonfirmasi dan meng-assign joki', time: '10 Jan 2025, 10:15', done: true, icon: Shield },
-    { step: 'Pengerjaan Dimulai', desc: 'Joki Alex Coder mulai mengerjakan tugas', time: '10 Jan 2025, 14:00', done: true, icon: FileText },
-    { step: 'Progress 50%', desc: 'Bagian metodologi selesai, mulai analisis', time: '12 Jan 2025, 16:00', done: true, icon: Package },
-    { step: 'Progress 70%', desc: 'Bagian analisis data sedang dikerjakan', time: '13 Jan 2025, 10:00', done: true, icon: Package },
-    { step: 'Review & QC', desc: 'Admin melakukan pengecekan kualitas', time: 'Estimasi 14 Jan 2025', done: false, icon: CheckCircle },
-    { step: 'Selesai', desc: 'Hasil dikirim ke customer', time: 'Estimasi 15 Jan 2025', done: false, icon: Star },
-  ],
+const STEP_ICONS: Record<string, React.ElementType> = {
+  'Order Dibuat': CreditCard,
+  'Pembayaran': CreditCard,
+  'Dikonfirmasi': Shield,
+  'Pengerjaan': FileText,
+  'Progress': Package,
+  'Review': CheckCircle,
+  'Selesai': Star,
+  'Dibatalkan': Package,
 };
+
+function getIconForStep(label: string | undefined | null) {
+  if (!label || typeof label !== 'string') return Package;
+  for (const key of Object.keys(STEP_ICONS)) {
+    if (label.includes(key)) return STEP_ICONS[key];
+  }
+  return Package;
+}
+
+interface TimelineStep {
+  step: string;
+  desc: string;
+  time: string;
+  done: boolean;
+}
+
+interface OrderInfo {
+  id: string;
+  order_number: string;
+  title: string;
+  price: number;
+  status: string;
+  deadline: string;
+  created_at: string;
+  joki?: { name: string };
+  service?: { name: string };
+}
 
 function TrackingContent() {
   const searchParams = useSearchParams();
   const [orderId, setOrderId] = useState(searchParams.get('id') || '');
-  const [showTracking, setShowTracking] = useState(!!searchParams.get('id'));
+  const [showTracking, setShowTracking] = useState(false);
+  const [order, setOrder] = useState<OrderInfo | null>(null);
+  const [timeline, setTimeline] = useState<TimelineStep[]>([]);
+  const [progress, setProgress] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const loadTracking = async (id: string) => {
+    if (!id) return;
+    setLoading(true);
+    const [orderRes, trackRes] = await Promise.all([
+      apiGetOrder(id),
+      apiGetOrderTracking(id),
+    ]);
+    if (orderRes.success) {
+      const d = orderRes.data as Record<string, unknown>;
+      setOrder({
+        id: d.id as string,
+        order_number: d.order_number as string,
+        title: d.title as string,
+        price: Number(d.price),
+        status: d.status as string,
+        deadline: d.deadline as string,
+        created_at: d.created_at as string,
+        joki: d.joki as { name: string } | undefined,
+        service: d.service as { name: string } | undefined,
+      });
+    }
+    if (trackRes.success) {
+      const td = trackRes.data as Record<string, unknown>;
+      const steps = (td.timeline as Record<string, unknown>[]) || [];
+      const mapped = steps.map((s) => ({
+        step: (s.title as string) || (s.label as string) || String(s.step ?? ''),
+        desc: (s.description as string) || (s.desc as string) || '',
+        time: s.timestamp ? new Date(s.timestamp as string).toLocaleString('id-ID') : (s.time as string) || '',
+        done: s.status === 'completed' || (s.done as boolean) || false,
+      }));
+      setTimeline(mapped);
+      const doneCount = mapped.filter(s => s.done).length;
+      setProgress(mapped.length > 0 ? Math.round((doneCount / mapped.length) * 100) : 0);
+    }
+    setShowTracking(true);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (searchParams.get('id')) {
+      loadTracking(searchParams.get('id')!);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,8 +135,9 @@ function TrackingContent() {
               />
             </div>
             <button
-              onClick={() => setShowTracking(true)}
-              className="px-6 py-3.5 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl font-medium hover:opacity-90 flex items-center gap-2"
+              onClick={() => loadTracking(orderId)}
+              disabled={loading}
+              className="px-6 py-3.5 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl font-medium hover:opacity-90 flex items-center gap-2 disabled:opacity-50"
             >
               Lacak
               <ArrowRight className="w-4 h-4" />
@@ -77,7 +145,7 @@ function TrackingContent() {
           </div>
         </motion.div>
 
-        {showTracking && (
+        {showTracking && order && (
           <>
             {/* Order Summary */}
             <motion.div
@@ -89,35 +157,35 @@ function TrackingContent() {
               <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-6">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-mono text-sm text-muted">{TRACKING_DATA.id}</span>
+                    <span className="font-mono text-sm text-muted">{order.order_number}</span>
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400">
-                      Sedang Dikerjakan
+                      {order.status.replace(/_/g, ' ')}
                     </span>
                   </div>
-                  <h2 className="text-lg font-bold">{TRACKING_DATA.service}</h2>
+                  <h2 className="text-lg font-bold">{order.title}</h2>
+                  {order.service && <p className="text-sm text-muted">{order.service.name}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-bold text-accent-green">{formatCurrency(TRACKING_DATA.price)}</p>
-                  <p className="text-xs text-muted">Lunas</p>
+                  <p className="text-xl font-bold text-accent-green">{formatCurrency(order.price)}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-3 bg-surface-2 rounded-xl">
                   <p className="text-xs text-muted flex items-center gap-1"><User className="w-3 h-3" /> Joki</p>
-                  <p className="text-sm font-medium mt-1">{TRACKING_DATA.joki}</p>
+                  <p className="text-sm font-medium mt-1">{order.joki?.name || 'Belum di-assign'}</p>
                 </div>
                 <div className="p-3 bg-surface-2 rounded-xl">
                   <p className="text-xs text-muted flex items-center gap-1"><Calendar className="w-3 h-3" /> Order</p>
-                  <p className="text-sm font-medium mt-1">{TRACKING_DATA.orderDate}</p>
+                  <p className="text-sm font-medium mt-1">{new Date(order.created_at).toLocaleDateString('id-ID')}</p>
                 </div>
                 <div className="p-3 bg-surface-2 rounded-xl">
                   <p className="text-xs text-muted flex items-center gap-1"><Clock className="w-3 h-3" /> Deadline</p>
-                  <p className="text-sm font-medium mt-1">{TRACKING_DATA.deadline}</p>
+                  <p className="text-sm font-medium mt-1">{new Date(order.deadline).toLocaleDateString('id-ID')}</p>
                 </div>
                 <div className="p-3 bg-surface-2 rounded-xl">
                   <p className="text-xs text-muted">Progress</p>
-                  <p className="text-sm font-bold text-primary-light mt-1">{TRACKING_DATA.progress}%</p>
+                  <p className="text-sm font-bold text-primary-light mt-1">{progress}%</p>
                 </div>
               </div>
 
@@ -126,7 +194,7 @@ function TrackingContent() {
                 <div className="h-3 bg-surface-2 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${TRACKING_DATA.progress}%` }}
+                    animate={{ width: `${progress}%` }}
                     transition={{ duration: 1, delay: 0.3 }}
                     className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
                   />
@@ -143,7 +211,9 @@ function TrackingContent() {
             >
               <h3 className="font-semibold mb-6">Timeline Pengerjaan</h3>
               <div className="space-y-0">
-                {TRACKING_DATA.timeline.map((step, i) => (
+                {timeline.map((step, i) => {
+                  const Icon = getIconForStep(step.step);
+                  return (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -20 }}
@@ -157,9 +227,9 @@ function TrackingContent() {
                           ? 'bg-gradient-to-br from-primary to-accent'
                           : 'bg-surface-2 border border-border'
                       }`}>
-                        <step.icon className={`w-5 h-5 ${step.done ? 'text-white' : 'text-muted'}`} />
+                        <Icon className={`w-5 h-5 ${step.done ? 'text-white' : 'text-muted'}`} />
                       </div>
-                      {i < TRACKING_DATA.timeline.length - 1 && (
+                      {i < timeline.length - 1 && (
                         <div className={`w-0.5 h-16 ${step.done ? 'bg-primary/50' : 'bg-border'}`} />
                       )}
                     </div>
@@ -173,7 +243,8 @@ function TrackingContent() {
                       </p>
                     </div>
                   </motion.div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
 

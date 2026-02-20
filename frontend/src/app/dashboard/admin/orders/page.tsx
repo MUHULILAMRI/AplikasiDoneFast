@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { MOCK_ORDERS, MOCK_JOKI } from '@/lib/data';
+import { apiGetOrders, apiAdminTeam, apiAdminAssignOrder } from '@/lib/api';
 import { formatCurrency, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { 
   Search, Filter, Eye, UserPlus, MessageCircle, 
@@ -14,12 +14,79 @@ export default function OrderManagementPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [assignModal, setAssignModal] = useState<string | null>(null);
+  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [jokiList, setJokiList] = useState<Record<string, unknown>[]>([]);
+  const [assigning, setAssigning] = useState<string | null>(null);
 
-  const filteredOrders = MOCK_ORDERS.filter((order) => {
-    if (filterStatus !== 'all' && order.status !== filterStatus) return false;
-    if (searchQuery && !order.title.toLowerCase().includes(searchQuery.toLowerCase()) && !order.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+  useEffect(() => {
+    async function load() {
+      const [ordRes, teamRes] = await Promise.all([apiGetOrders({ limit: 50 }), apiAdminTeam()]);
+      if (ordRes.success) {
+        const d = ordRes.data as Record<string, unknown>;
+        const rawOrders = (d.data ?? d) as Record<string, unknown>[];
+        // Normalize: orders have nested joki object, status is UPPERCASE
+        setOrders(rawOrders.map(o => ({
+          ...o,
+          joki_id: (o.joki as Record<string, unknown>)?.id ?? o.joki_id,
+          title: o.title ?? (o.service as Record<string, unknown>)?.name,
+        })));
+      }
+      if (teamRes.success) {
+        const raw = teamRes.data as Record<string, unknown>[];
+        setJokiList(raw.map(normalizeJoki));
+      }
+    }
+    load();
+  }, []);
+
+  function normalizeJoki(j: Record<string, unknown>) {
+    return {
+      ...j,
+      name: (j.user as Record<string, unknown>)?.name ?? j.name,
+      email: (j.user as Record<string, unknown>)?.email ?? j.email,
+      total_completed: (j._count as Record<string, number>)?.orders ?? 0,
+      is_available: j.is_available ?? true,
+      rating: (j.rating as number) ?? 0,
+      skills: (j.skills as string[]) ?? [],
+    };
+  }
+
+  async function handleAssign(orderId: string, jokiId: string) {
+    try {
+      setAssigning(orderId);
+      const res = await apiAdminAssignOrder(orderId, jokiId);
+      if (!res.success) {
+        alert(res.error || 'Gagal assign joki');
+        return;
+      }
+
+      const updated = res.data as Record<string, unknown>;
+      setOrders((prev) =>
+        prev.map((o) =>
+          (o.id === orderId || o.order_number === orderId)
+            ? {
+                ...o,
+                joki_id: updated.joki_id ?? jokiId,
+                joki: updated.joki ?? (jokiList.find((j) => j.id === jokiId) as Record<string, unknown>),
+                status: updated.status ?? o.status,
+              }
+            : o
+        )
+      );
+      setAssignModal(null);
+    } catch (error) {
+      console.error(error);
+      alert('Terjadi kesalahan saat assign joki');
+    } finally {
+      setAssigning(null);
+    }
+  }
+
+  const filteredOrders = useMemo(() => orders.filter((order) => {
+    if (filterStatus !== 'all' && order.status !== filterStatus.toUpperCase()) return false;
+    if (searchQuery && !(order.title as string)?.toLowerCase().includes(searchQuery.toLowerCase()) && !(order.id as string)?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
-  });
+  }), [orders, filterStatus, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -76,7 +143,7 @@ export default function OrderManagementPage() {
       <div className="space-y-4">
         {filteredOrders.map((order, i) => (
           <motion.div
-            key={order.id}
+            key={order.id as string}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
@@ -86,22 +153,22 @@ export default function OrderManagementPage() {
               {/* Order Info */}
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="font-mono text-sm text-primary-light font-medium">{order.id}</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>
-                    {getStatusLabel(order.status)}
+                  <span className="font-mono text-sm text-primary-light font-medium">{(order.order_number as string) || (order.id as string)}</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status as string)}`}>
+                    {getStatusLabel(order.status as string)}
                   </span>
                 </div>
-                <h3 className="font-semibold">{order.title}</h3>
-                <p className="text-sm text-muted mt-1">{order.description}</p>
+                <h3 className="font-semibold">{order.title as string}</h3>
+                <p className="text-sm text-muted mt-1">{order.description as string}</p>
               </div>
 
               {/* Price & Deadline */}
               <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <p className="text-lg font-bold">{formatCurrency(order.price)}</p>
+                  <p className="text-lg font-bold">{formatCurrency(order.price as number)}</p>
                   <p className="text-xs text-muted flex items-center gap-1 justify-end">
                     <Clock className="w-3 h-3" />
-                    {order.deadline}
+                    {order.deadline ? new Date(order.deadline as string).toLocaleDateString('id-ID') : '-'}
                   </p>
                 </div>
 
@@ -110,15 +177,15 @@ export default function OrderManagementPage() {
                   {order.joki_id ? (
                     <div className="flex items-center gap-2 p-2 bg-surface-2 rounded-xl border border-border">
                       <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold">
-                        {MOCK_JOKI.find((j) => j.id === order.joki_id)?.name.charAt(0)}
+                        {((jokiList.find((j) => j.id === order.joki_id) as Record<string, unknown>)?.name as string)?.charAt(0)}
                       </div>
                       <span className="text-sm">
-                        {MOCK_JOKI.find((j) => j.id === order.joki_id)?.name}
+                        {(jokiList.find((j) => j.id === order.joki_id) as Record<string, unknown>)?.name as string}
                       </span>
                     </div>
                   ) : (
                     <button
-                      onClick={() => setAssignModal(order.id)}
+                      onClick={() => setAssignModal(order.id as string)}
                       className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 text-primary-light rounded-xl text-sm hover:bg-primary/20 transition-colors"
                     >
                       <UserPlus className="w-4 h-4" />
@@ -143,7 +210,7 @@ export default function OrderManagementPage() {
             </div>
 
             {/* Progress bar for in-progress orders */}
-            {order.status === 'in_progress' && (
+            {(order.status as string)?.toUpperCase() === 'IN_PROGRESS' && (
               <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex items-center justify-between text-xs text-muted mb-2">
                   <span>Progress</span>
@@ -176,22 +243,23 @@ export default function OrderManagementPage() {
             <p className="text-sm text-muted mb-6">Pilih joki untuk order {assignModal}</p>
 
             <div className="space-y-3">
-              {MOCK_JOKI.filter((j) => j.is_available).map((joki) => (
+              {jokiList.filter((j) => j.is_available).map((joki) => (
                 <button
-                  key={joki.id}
-                  onClick={() => setAssignModal(null)}
+                  key={joki.id as string}
+                  onClick={() => handleAssign(assignModal!, joki.id as string)}
+                  disabled={assigning === assignModal}
                   className="w-full flex items-center gap-4 p-4 bg-surface-2 rounded-xl border border-border hover:border-primary/30 transition-colors text-left"
                 >
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-sm font-bold">
-                    {joki.name.charAt(0)}
+                    {(joki.name as string)?.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-sm">{joki.name}</p>
-                    <p className="text-xs text-muted">{joki.skills.join(', ')}</p>
+                    <p className="font-medium text-sm">{joki.name as string}</p>
+                    <p className="text-xs text-muted">{((joki.skills as string[]) || []).join(', ')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-yellow-400">★ {joki.rating}</p>
-                    <p className="text-xs text-muted">{joki.total_completed} done</p>
+                    <p className="text-xs text-yellow-400">★ {joki.rating as number}</p>
+                    <p className="text-xs text-muted">{joki.total_completed as number} done</p>
                   </div>
                 </button>
               ))}

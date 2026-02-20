@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Mail, Lock, Eye, EyeOff, User, Phone, ArrowRight, Chrome, CheckCircle2 } from 'lucide-react';
+import { apiRegister, setToken } from '@/lib/api';
+import { useAppStore } from '@/store/useAppStore';
+import { Mail, Lock, Eye, EyeOff, User, Phone, ArrowRight, Chrome } from 'lucide-react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -16,14 +19,47 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState('');
+  const { setUser } = useAppStore();
+  const searchParams = useSearchParams();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Password dan konfirmasi tidak sama');
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      window.location.href = '/login';
-    }, 2000);
+
+    const res = await apiRegister({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+    });
+
+    if (res.success) {
+      const { user, token } = res.data;
+      setToken(token);
+      setUser({
+        id: user.id as string,
+        name: user.name as string,
+        email: user.email as string,
+        role: (user.role as string).toLowerCase() as 'admin' | 'customer' | 'joki',
+        balance: 0,
+        is_vip: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      const redirect = searchParams.get('redirect');
+      window.location.href = redirect || '/marketplace';
+    } else {
+      setError(res.error);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -50,6 +86,11 @@ export default function RegisterPage() {
           <p className="text-muted text-sm text-center mb-8">Daftar gratis dan mulai order sekarang</p>
 
           <form onSubmit={handleRegister} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm text-center">
+                {error}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium mb-2">Nama Lengkap</label>
               <div className="relative">
@@ -178,7 +219,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-muted mt-6">
             Sudah punya akun?{' '}
-            <Link href="/login" className="text-primary-light hover:underline font-medium">
+            <Link href="/login?force=1" className="text-primary-light hover:underline font-medium">
               Masuk
             </Link>
           </p>

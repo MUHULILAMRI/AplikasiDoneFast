@@ -1,70 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { apiGetOrders, apiJokiUpdateProgress } from '@/lib/api';
 import {
   ClipboardList, Clock, CheckCircle, Play, AlertCircle,
   Timer, Eye, MessageSquare, Upload, ChevronDown,
   Filter, Search, XCircle, RotateCcw
 } from 'lucide-react';
 
-const ORDERS = [
-  {
-    id: 'ORD-001', title: 'Skripsi BAB 3 - Metodologi Penelitian', customer: 'Ahmad Rizki',
-    category: 'Akademik', deadline: '2025-01-15', price: 350000, commission: 245000,
-    status: 'in_progress', progress: 70, priority: 'high',
-    description: 'Menulis BAB 3 tentang metodologi penelitian kuantitatif. Framework: survey, populasi mahasiswa UI.',
-    files: ['brief.pdf', 'referensi.docx']
-  },
-  {
-    id: 'ORD-002', title: 'Tugas Coding Python - Machine Learning', customer: 'Siti Nurhaliza',
-    category: 'Coding', deadline: '2025-01-18', price: 200000, commission: 140000,
-    status: 'in_progress', progress: 30, priority: 'medium',
-    description: 'Implementasi model klasifikasi menggunakan Random Forest dan SVM. Dataset sudah disediakan.',
-    files: ['dataset.csv', 'tugas_ml.pdf']
-  },
-  {
-    id: 'ORD-003', title: 'Makalah Hukum Bisnis', customer: 'Budi Santoso',
-    category: 'Akademik', deadline: '2025-01-20', price: 150000, commission: 105000,
-    status: 'pending', progress: 0, priority: 'low',
-    description: 'Makalah tentang aspek hukum dalam bisnis e-commerce di Indonesia. 15-20 halaman.',
-    files: ['outline.pdf']
-  },
-  {
-    id: 'ORD-098', title: 'Website Portfolio React', customer: 'Dian Permata',
-    category: 'Coding', deadline: '2025-01-10', price: 500000, commission: 350000,
-    status: 'completed', progress: 100, priority: 'medium',
-    description: 'Website portfolio responsive menggunakan React + Tailwind CSS.',
-    files: ['design.fig']
-  },
-  {
-    id: 'ORD-095', title: 'Revisi Proposal Tesis', customer: 'Fajar Nugroho',
-    category: 'Akademik', deadline: '2025-01-12', price: 250000, commission: 175000,
-    status: 'revision', progress: 85, priority: 'high',
-    description: 'Revisi bagian latar belakang dan rumusan masalah sesuai feedback dosen.',
-    files: ['proposal_v1.docx', 'feedback.pdf']
-  },
-];
-
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: 'Menunggu', color: 'bg-yellow-500/10 text-yellow-400', icon: Clock },
+  PENDING: { label: 'Menunggu', color: 'bg-yellow-500/10 text-yellow-400', icon: Clock },
+  paid: { label: 'Siap Dikerjakan', color: 'bg-cyan-500/10 text-cyan-400', icon: AlertCircle },
+  PAID: { label: 'Siap Dikerjakan', color: 'bg-cyan-500/10 text-cyan-400', icon: AlertCircle },
   in_progress: { label: 'Dikerjakan', color: 'bg-blue-500/10 text-blue-400', icon: Play },
+  IN_PROGRESS: { label: 'Dikerjakan', color: 'bg-blue-500/10 text-blue-400', icon: Play },
   completed: { label: 'Selesai', color: 'bg-green-500/10 text-green-400', icon: CheckCircle },
+  COMPLETED: { label: 'Selesai', color: 'bg-green-500/10 text-green-400', icon: CheckCircle },
   revision: { label: 'Revisi', color: 'bg-orange-500/10 text-orange-400', icon: RotateCcw },
+  REVISION: { label: 'Revisi', color: 'bg-orange-500/10 text-orange-400', icon: RotateCcw },
   cancelled: { label: 'Dibatalkan', color: 'bg-red-500/10 text-red-400', icon: XCircle },
+  CANCELLED: { label: 'Dibatalkan', color: 'bg-red-500/10 text-red-400', icon: XCircle },
 };
 
 export default function JokiOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<typeof ORDERS[0] | null>(null);
+  const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const router = useRouter();
 
-  const filtered = ORDERS.filter(o => {
-    const matchStatus = statusFilter === 'all' || o.status === statusFilter;
-    const matchSearch = o.title.toLowerCase().includes(searchQuery.toLowerCase()) || o.id.includes(searchQuery);
+  useEffect(() => {
+    async function load() {
+      const res = await apiGetOrders({ limit: 50 });
+      if (res.success) {
+        const d = res.data as Record<string, unknown>;
+        setOrders((d.data ?? d) as Record<string, unknown>[]);
+      }
+    }
+    load();
+  }, []);
+  const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
+
+  const filtered = useMemo(() => orders.filter(o => {
+    const status = (o.status as string)?.toLowerCase();
+    const matchStatus = statusFilter === 'all' || status === statusFilter;
+    const matchSearch = (o.title as string)?.toLowerCase().includes(searchQuery.toLowerCase()) || (o.id as string)?.includes(searchQuery);
     return matchStatus && matchSearch;
-  });
+  }), [orders, statusFilter, searchQuery]);
+
+  async function handleStart(orderId: string) {
+    try {
+      setUpdating(orderId);
+      const res = await apiJokiUpdateProgress(orderId, { status: 'IN_PROGRESS', notes: 'Joki mulai mengerjakan' });
+      if (!res.success) {
+        alert(res.error || 'Gagal memulai order');
+        return;
+      }
+      const data = res.data as Record<string, unknown>;
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: data.status ?? 'IN_PROGRESS' } : o)));
+    } catch (error) {
+      console.error(error);
+      alert('Terjadi kesalahan saat memulai order');
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  function goToUpload(orderId: string) {
+    router.push(`/dashboard/joki/upload?orderId=${orderId}`);
+  }
 
   return (
     <div className="space-y-6">
@@ -86,7 +94,7 @@ export default function JokiOrdersPage() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {['all', 'pending', 'in_progress', 'revision', 'completed'].map((status) => (
+          {['all', 'paid', 'in_progress', 'revision', 'completed'].map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -106,10 +114,11 @@ export default function JokiOrdersPage() {
       <div className="space-y-4">
         <AnimatePresence mode="popLayout">
           {filtered.map((order, i) => {
-            const statusCfg = STATUS_CONFIG[order.status];
+            const status = (order.status as string)?.toUpperCase();
+            const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
             return (
               <motion.div
-                key={order.id}
+                key={order.id as string}
                 layout
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -121,7 +130,7 @@ export default function JokiOrdersPage() {
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="font-mono text-xs text-muted">{order.id}</span>
+                      <span className="font-mono text-xs text-muted">{(order.order_number as string) || (order.id as string)}</span>
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusCfg.color}`}>
                         {statusCfg.label}
                       </span>
@@ -133,51 +142,58 @@ export default function JokiOrdersPage() {
                         {order.priority === 'high' ? '🔥 Mendesak' : order.priority === 'medium' ? '⚡ Normal' : '🌿 Santai'}
                       </span>
                     </div>
-                    <h3 className="font-semibold mb-1">{order.title}</h3>
-                    <p className="text-sm text-muted mb-3">{order.description}</p>
+                    <h3 className="font-semibold mb-1">{order.title as string}</h3>
+                    <p className="text-sm text-muted mb-3">{order.description as string}</p>
                     <div className="flex items-center gap-4 text-xs text-muted">
-                      <span>👤 {order.customer}</span>
-                      <span>📁 {order.category}</span>
+                      <span>👤 {(order.customer ?? (order.user as Record<string, unknown>)?.name ?? '') as string}</span>
+                      <span>📁 {(order.category ?? (order.service as Record<string, unknown>)?.category ?? '') as string}</span>
                       <span className="flex items-center gap-1">
                         <Timer className="w-3 h-3" />
-                        {order.deadline}
+                        {order.deadline ? formatDate(order.deadline as string) : '-'}
                       </span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-lg font-bold text-accent-green">{formatCurrency(order.commission)}</p>
+                    <p className="text-lg font-bold text-accent-green">{formatCurrency((order.commission ?? order.price) as number)}</p>
                     <p className="text-xs text-muted">Komisi kamu</p>
                   </div>
                 </div>
 
-                {order.status !== 'completed' && (
+                {status !== 'COMPLETED' && (
                   <div className="mt-4">
                     <div className="flex justify-between text-xs text-muted mb-1.5">
                       <span>Progress</span>
-                      <span>{order.progress}%</span>
+                      <span>{(order.progress as number) ?? 0}%</span>
                     </div>
                     <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          order.progress >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
-                          order.progress >= 30 ? 'bg-gradient-to-r from-accent to-primary' :
+                          (order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                          (order.progress as number) >= 30 ? 'bg-gradient-to-r from-accent to-primary' :
                           'bg-gradient-to-r from-yellow-500 to-orange-400'
                         }`}
-                        style={{ width: `${order.progress}%` }}
+                        style={{ width: `${(order.progress as number) ?? 0}%` }}
                       />
                     </div>
                   </div>
                 )}
 
                 <div className="mt-4 flex gap-2">
-                  {order.status === 'pending' && (
-                    <button className="px-4 py-2 bg-gradient-to-r from-accent to-primary text-white rounded-xl text-xs font-medium hover:opacity-90">
-                      Mulai Kerjakan
+                  {status === 'PAID' && (
+                    <button
+                      onClick={() => handleStart(order.id as string)}
+                      disabled={updating === (order.id as string)}
+                      className="px-4 py-2 bg-gradient-to-r from-accent to-primary text-white rounded-xl text-xs font-medium hover:opacity-90 disabled:opacity-60"
+                    >
+                      {updating === (order.id as string) ? 'Memulai...' : 'Mulai Kerjakan'}
                     </button>
                   )}
-                  {order.status === 'in_progress' && (
+                  {status === 'IN_PROGRESS' && (
                     <>
-                      <button className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1">
+                      <button
+                        onClick={() => goToUpload(order.id as string)}
+                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
+                      >
                         <Upload className="w-3 h-3" />
                         Upload Hasil
                       </button>
@@ -187,13 +203,16 @@ export default function JokiOrdersPage() {
                       </button>
                     </>
                   )}
-                  {order.status === 'revision' && (
-                    <button className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1">
+                  {status === 'REVISION' && (
+                    <button
+                      onClick={() => goToUpload(order.id as string)}
+                      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
+                    >
                       <Upload className="w-3 h-3" />
                       Upload Revisi
                     </button>
                   )}
-                  {order.status === 'completed' && (
+                  {status === 'COMPLETED' && (
                     <span className="px-4 py-2 bg-green-500/10 text-green-400 rounded-xl text-xs font-medium flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" />
                       Selesai
@@ -216,41 +235,41 @@ export default function JokiOrdersPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="font-mono text-sm text-muted">{selectedOrder.id}</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[selectedOrder.status].color}`}>
-                {STATUS_CONFIG[selectedOrder.status].label}
+              <span className="font-mono text-sm text-muted">{(selectedOrder.order_number as string) || (selectedOrder.id as string)}</span>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${(STATUS_CONFIG[selectedOrder.status as string] ?? STATUS_CONFIG.pending).color}`}>
+                {(STATUS_CONFIG[selectedOrder.status as string] ?? STATUS_CONFIG.pending).label}
               </span>
             </div>
-            <h2 className="text-xl font-bold mb-2">{selectedOrder.title}</h2>
-            <p className="text-sm text-muted mb-4">{selectedOrder.description}</p>
+            <h2 className="text-xl font-bold mb-2">{selectedOrder.title as string}</h2>
+            <p className="text-sm text-muted mb-4">{selectedOrder.description as string}</p>
 
             <div className="space-y-3 mb-6">
               <div className="flex justify-between p-3 bg-surface-2 rounded-xl">
                 <span className="text-sm text-muted">Customer</span>
-                <span className="text-sm font-medium">{selectedOrder.customer}</span>
+                <span className="text-sm font-medium">{(selectedOrder.customer ?? (selectedOrder.user as Record<string, unknown>)?.name ?? '') as string}</span>
               </div>
               <div className="flex justify-between p-3 bg-surface-2 rounded-xl">
                 <span className="text-sm text-muted">Kategori</span>
-                <span className="text-sm font-medium">{selectedOrder.category}</span>
+                <span className="text-sm font-medium">{(selectedOrder.category ?? (selectedOrder.service as Record<string, unknown>)?.category ?? '') as string}</span>
               </div>
               <div className="flex justify-between p-3 bg-surface-2 rounded-xl">
                 <span className="text-sm text-muted">Deadline</span>
-                <span className="text-sm font-medium">{selectedOrder.deadline}</span>
+                <span className="text-sm font-medium">{selectedOrder.deadline ? formatDate(selectedOrder.deadline as string) : '-'}</span>
               </div>
               <div className="flex justify-between p-3 bg-surface-2 rounded-xl">
                 <span className="text-sm text-muted">Harga Order</span>
-                <span className="text-sm font-medium">{formatCurrency(selectedOrder.price)}</span>
+                <span className="text-sm font-medium">{formatCurrency(selectedOrder.price as number)}</span>
               </div>
               <div className="flex justify-between p-3 bg-surface-2 rounded-xl border border-accent/20">
                 <span className="text-sm text-muted">Komisi Kamu</span>
-                <span className="text-sm font-bold text-accent-green">{formatCurrency(selectedOrder.commission)}</span>
+                <span className="text-sm font-bold text-accent-green">{formatCurrency((selectedOrder.commission ?? selectedOrder.price) as number)}</span>
               </div>
             </div>
 
             <div className="mb-6">
               <h4 className="text-sm font-medium mb-2">File Lampiran</h4>
               <div className="flex flex-wrap gap-2">
-                {selectedOrder.files.map((file, i) => (
+                {((selectedOrder.files as string[]) || []).map((file: string, i: number) => (
                   <span key={i} className="px-3 py-1.5 bg-surface-2 border border-border rounded-lg text-xs">
                     📎 {file}
                   </span>

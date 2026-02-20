@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useAppStore } from '@/store/useAppStore';
+import { apiLogin, removeToken, setToken } from '@/lib/api';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Chrome } from 'lucide-react';
 
 export default function LoginPage() {
@@ -11,27 +13,51 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const { setUser } = useAppStore();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('force') === '1') {
+      removeToken();
+      setUser(null);
+    }
+  }, [searchParams, setUser]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate login
-    setTimeout(() => {
+    const res = await apiLogin(email, password);
+
+    if (res.success) {
+      const { user, token } = res.data;
+      setToken(token);
       setUser({
-        id: '1',
-        name: 'Admin DoneFast',
-        email: email,
-        role: 'admin',
-        balance: 5000000,
-        is_vip: true,
+        id: user.id as string,
+        name: user.name as string,
+        email: user.email as string,
+        role: (user.role as string).toLowerCase() as 'admin' | 'customer' | 'joki',
+        avatar: user.avatar as string | undefined,
+        phone: user.phone as string | undefined,
+        balance: Number(user.balance ?? 0),
+        is_vip: user.is_vip as boolean,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
-      setIsLoading(false);
-      window.location.href = '/dashboard/admin';
-    }, 1500);
+      const role = (user.role as string).toLowerCase();
+      const fallback = role === 'admin'
+        ? '/dashboard/admin'
+        : role === 'joki'
+          ? '/dashboard/joki'
+          : '/marketplace';
+      const redirect = searchParams.get('redirect');
+      window.location.href = redirect || fallback;
+    } else {
+      setError(res.error);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -60,6 +86,11 @@ export default function LoginPage() {
           <p className="text-muted text-sm text-center mb-8">Masuk ke akun DoneFast kamu</p>
 
           <form onSubmit={handleLogin} className="space-y-5">
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm text-center">
+                {error}
+              </div>
+            )}
             {/* Email */}
             <div>
               <label className="block text-sm font-medium mb-2">Email</label>

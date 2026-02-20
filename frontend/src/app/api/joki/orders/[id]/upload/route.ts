@@ -63,3 +63,57 @@ export async function POST(
     return apiError('Internal server error', 500);
   }
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireRole(req, 'JOKI');
+    if ('error' in auth) return auth.error;
+
+    const { id } = await params;
+    const body = await req.json();
+    const { status, notes } = body;
+
+    const joki = await prisma.jokiMember.findUnique({ where: { user_id: auth.user.userId } });
+    if (!joki) return apiError('Profil joki tidak ditemukan', 404);
+
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [{ id }, { order_number: id }],
+        joki_id: joki.id,
+      },
+    });
+    if (!order) return apiError('Order tidak ditemukan atau bukan milik kamu', 404);
+
+    const data: Record<string, unknown> = {};
+    if (status) data.status = String(status).toUpperCase();
+
+    // If status moves to COMPLETED without files, block
+    if (data.status === 'COMPLETED' && (order.result_files?.length ?? 0) === 0) {
+      return apiError('Upload hasil dulu sebelum menandai selesai');
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data,
+    });
+
+    if (notes) {
+      await prisma.notification.create({
+        data: {
+          user_id: order.user_id,
+          title: 'Update Order',
+          message: `Progress order ${order.order_number}: ${notes}`,
+          type: 'ORDER_UPDATE',
+        },
+      });
+    }
+
+    return apiSuccess(updated);
+  } catch (error) {
+    console.error('Update progress error:', error);
+    return apiError('Internal server error', 500);
+  }
+}

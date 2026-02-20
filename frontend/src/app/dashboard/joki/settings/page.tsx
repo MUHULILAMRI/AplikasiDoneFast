@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { apiGetMe } from '@/lib/api';
 import {
   Settings, User, Bell, Shield, CreditCard, Save,
   ToggleLeft, ToggleRight, Upload, Mail, Phone,
@@ -9,12 +10,21 @@ import {
 } from 'lucide-react';
 
 export default function JokiSettingsPage() {
+  const [profile, setProfile] = useState<Record<string, unknown>>({});
   const [notifications, setNotifications] = useState({
     newOrder: true,
     chat: true,
     deadline: true,
     commission: true,
   });
+
+  useEffect(() => {
+    async function load() {
+      const res = await apiGetMe();
+      if (res.success) setProfile(res.data as Record<string, unknown>);
+    }
+    load();
+  }, []);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -45,25 +55,25 @@ export default function JokiSettingsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Nama Lengkap</label>
-            <input type="text" defaultValue="Alex Coder" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="text" defaultValue={(profile.name as string) ?? ''} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Username</label>
-            <input type="text" defaultValue="alexcoder" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="text" defaultValue={(profile.username as string) ?? ''} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Email</label>
-            <input type="email" defaultValue="alex@gmail.com" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="email" defaultValue={(profile.email as string) ?? ''} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">No. Telepon</label>
-            <input type="tel" defaultValue="081234567890" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="tel" defaultValue={(profile.phone as string) ?? ''} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
         </div>
         <div className="mt-4">
           <label className="block text-sm font-medium mb-2">Bio</label>
           <textarea
-            defaultValue="Joki senior dengan spesialisasi di bidang coding (Python, Java, React) dan penulisan akademik. 3+ tahun pengalaman."
+            defaultValue={(profile.bio as string) ?? ''}
             rows={3}
             className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground text-sm focus:outline-none focus:border-primary/50 resize-none"
           />

@@ -6,18 +6,67 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { SERVICES } from '@/lib/data';
+import { apiGetService, apiGetServices, apiCreateOrder, apiEstimatePrice } from '@/lib/api';
 import { formatCurrency, estimatePrice, getCategoryLabel } from '@/lib/utils';
 import { 
   Upload, Calendar, FileText, ArrowRight, ArrowLeft, 
   Zap, Shield, Clock, Star, CheckCircle2, AlertCircle 
 } from 'lucide-react';
-import type { DifficultyLevel } from '@/types';
+import type { DifficultyLevel, Service } from '@/types';
 
 function OrderForm() {
   const searchParams = useSearchParams();
   const serviceId = searchParams.get('service');
-  const service = SERVICES.find((s) => s.id === serviceId) || SERVICES[0];
+  const [service, setService] = useState<Service | null>(null);
+  const [loadingService, setLoadingService] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoadingService(true);
+      if (serviceId) {
+        const res = await apiGetService(serviceId);
+        if (res.success) {
+          const s = res.data as Record<string, unknown>;
+          setService({
+            id: s.id as string,
+            name: s.name as string,
+            description: s.description as string,
+            category: (s.category as string).toLowerCase() as Service['category'],
+            base_price: Number(s.base_price),
+            rating: s.rating as number,
+            total_orders: s.total_orders as number,
+            estimated_days: s.estimated_days as number,
+            image: s.image as string | undefined,
+            features: s.features as string[],
+            is_popular: s.is_popular as boolean,
+          });
+        }
+      }
+      if (!service) {
+        // Fallback: load first service
+        const all = await apiGetServices();
+        if (all.success && (all.data as unknown[]).length > 0) {
+          const s = (all.data as Record<string, unknown>[])[0];
+          setService({
+            id: s.id as string,
+            name: s.name as string,
+            description: s.description as string,
+            category: (s.category as string).toLowerCase() as Service['category'],
+            base_price: Number(s.base_price),
+            rating: s.rating as number,
+            total_orders: s.total_orders as number,
+            estimated_days: s.estimated_days as number,
+            image: s.image as string | undefined,
+            features: s.features as string[],
+            is_popular: s.is_popular as boolean,
+          });
+        }
+      }
+      setLoadingService(false);
+    }
+    load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceId]);
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -32,12 +81,12 @@ function OrderForm() {
     voucher: '',
   });
 
-  const priceEstimate = estimatePrice({
+  const priceEstimate = service ? estimatePrice({
     pages: formData.pages,
     deadline_days: formData.deadline_days,
     difficulty: formData.difficulty,
     category: service.category,
-  });
+  }) : { base_price: 0, difficulty_multiplier: 1, deadline_multiplier: 1, pages_cost: 0, total: 0 };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -54,6 +103,43 @@ function OrderForm() {
       files: prev.files.filter((_, i) => i !== index),
     }));
   };
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmitOrder = async () => {
+    if (!service) return;
+    setSubmitting(true);
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + formData.deadline_days);
+    const res = await apiCreateOrder({
+      service_id: service.id,
+      title: formData.title,
+      description: formData.description,
+      requirements: formData.requirements || '-',
+      pages: formData.pages,
+      difficulty: formData.difficulty.toUpperCase(),
+      deadline: deadline.toISOString(),
+      voucher_code: formData.voucher || undefined,
+    });
+    if (res.success) {
+      const order = res.data as Record<string, unknown>;
+      window.location.href = `/checkout?order_id=${order.id}`;
+    } else {
+      alert((res as { error: string }).error || 'Gagal membuat order');
+    }
+    setSubmitting(false);
+  };
+
+  if (loadingService || !service) {
+    return (
+      <main>
+        <Navbar />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main>
@@ -330,13 +416,20 @@ function OrderForm() {
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : (
-                    <Link
-                      href="/checkout"
-                      className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-accent-green to-emerald-500 text-white rounded-xl font-bold hover:opacity-90 transition-opacity glow-accent"
+                    <button
+                      onClick={handleSubmitOrder}
+                      disabled={submitting}
+                      className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-accent-green to-emerald-500 text-white rounded-xl font-bold hover:opacity-90 transition-opacity glow-accent disabled:opacity-50"
                     >
-                      <Zap className="w-5 h-5" />
-                      Bayar {formatCurrency(priceEstimate.total)}
-                    </Link>
+                      {submitting ? (
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <Zap className="w-5 h-5" />
+                          Bayar {formatCurrency(priceEstimate.total)}
+                        </>
+                      )}
+                    </button>
                   )}
                 </div>
               </motion.div>

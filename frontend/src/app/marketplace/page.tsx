@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { SERVICES } from '@/lib/data';
+import { apiGetServices } from '@/lib/api';
 import { formatCurrency, getCategoryLabel } from '@/lib/utils';
 import { Star, Clock, ArrowRight, Search, SlidersHorizontal, BookOpen, Building2, Code2, MessageSquare, Bot } from 'lucide-react';
-import type { ServiceCategory } from '@/types';
+import type { ServiceCategory, Service } from '@/types';
 
 const categories: { id: ServiceCategory | 'all'; label: string; icon: React.ElementType }[] = [
   { id: 'all', label: 'Semua', icon: SlidersHorizontal },
@@ -20,12 +20,39 @@ const categories: { id: ServiceCategory | 'all'; label: string; icon: React.Elem
 ];
 
 export default function MarketplacePage() {
+  const [services, setServices] = useState<Service[]>([]);
   const [activeCategory, setActiveCategory] = useState<ServiceCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'popular' | 'price_low' | 'price_high' | 'rating'>('popular');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadServices() {
+      setLoading(true);
+      const res = await apiGetServices();
+      if (res.success) {
+        const data = res.data as Record<string, unknown>[];
+        setServices(data.map(s => ({
+          id: s.id as string,
+          name: s.name as string,
+          description: s.description as string,
+          category: (s.category as string).toLowerCase() as ServiceCategory,
+          base_price: Number(s.base_price),
+          rating: s.rating as number,
+          total_orders: s.total_orders as number,
+          estimated_days: s.estimated_days as number,
+          image: s.image as string | undefined,
+          features: s.features as string[],
+          is_popular: s.is_popular as boolean,
+        })));
+      }
+      setLoading(false);
+    }
+    loadServices();
+  }, []);
 
   const filteredServices = useMemo(() => {
-    let filtered = SERVICES;
+    let filtered = services;
 
     if (activeCategory !== 'all') {
       filtered = filtered.filter((s) => s.category === activeCategory);
@@ -54,7 +81,7 @@ export default function MarketplacePage() {
     }
 
     return filtered;
-  }, [activeCategory, searchQuery, sortBy]);
+  }, [services, activeCategory, searchQuery, sortBy]);
 
   return (
     <main>

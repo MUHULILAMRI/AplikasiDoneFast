@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MOCK_CHAT } from '@/lib/data';
+// Chat data is loaded inline for admin chat
 import {
   MessageSquare, Send, Search, Phone, Video,
   MoreVertical, Paperclip, Smile, Star, Clock,

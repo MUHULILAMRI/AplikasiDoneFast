@@ -8,8 +8,11 @@ import { requireRole, apiSuccess, apiError } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const includeAll = searchParams.get('all') === '1' || searchParams.get('all') === 'true';
+
     const vouchers = await prisma.voucher.findMany({
-      where: { is_active: true, valid_until: { gt: new Date() } },
+      where: includeAll ? {} : { is_active: true, valid_until: { gt: new Date() } },
       orderBy: { created_at: 'desc' },
     });
 

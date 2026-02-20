@@ -1,24 +1,43 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MOCK_STATS } from '@/lib/data';
+import { apiAdminFinance } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
   DollarSign, TrendingUp, TrendingDown, Wallet,
   ArrowUpRight, Download, Calendar, PieChart
 } from 'lucide-react';
 
-const transactions = [
-  { id: 1, type: 'income', desc: 'Order DF-ABC123 - Makalah', amount: 150000, date: '18 Feb 2026' },
-  { id: 2, type: 'income', desc: 'Order DF-DEF456 - Website', amount: 1500000, date: '18 Feb 2026' },
-  { id: 3, type: 'expense', desc: 'Komisi Ahmad Rizky', amount: 90000, date: '17 Feb 2026' },
-  { id: 4, type: 'expense', desc: 'Komisi Dina Pratiwi', amount: 825000, date: '17 Feb 2026' },
-  { id: 5, type: 'income', desc: 'Order DF-JKL012 - PPT', amount: 85000, date: '17 Feb 2026' },
-  { id: 6, type: 'income', desc: 'Order DF-MNO345 - Skripsi', amount: 750000, date: '16 Feb 2026' },
-];
-
 export default function FinancePage() {
-  const stats = MOCK_STATS;
+  const [stats, setStats] = useState<Record<string, number>>({ total_income_month: 0, total_profit_month: 0, completed_orders: 0 });
+  const [transactions, setTransactions] = useState<Record<string, unknown>[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const res = await apiAdminFinance();
+      if (res.success) {
+        const d = res.data as Record<string, unknown>;
+        const summary = (d.summary ?? {}) as Record<string, number>;
+        setStats({
+          total_income_month: summary.monthly_revenue ?? summary.total_revenue ?? 0,
+          total_profit_month: summary.monthly_profit ?? summary.total_profit ?? 0,
+          completed_orders: summary.total_transactions ?? 0,
+        });
+        if (d.transactions) {
+          const raw = d.transactions as Record<string, unknown>[];
+          setTransactions(raw.map(t => ({
+            ...t,
+            type: (t.payment_status as string)?.toLowerCase() || (t.type as string),
+            amount: Number(t.amount ?? 0),
+            desc: (t.order as Record<string, unknown>)?.title ?? t.type,
+            date: t.created_at ? new Date(t.created_at as string).toLocaleDateString('id-ID') : '',
+          })));
+        }
+      }
+    }
+    load();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -45,7 +64,7 @@ export default function FinancePage() {
           { label: 'Total Income', value: stats.total_income_month, icon: DollarSign, color: 'from-green-500 to-emerald-500', change: '+45%' },
           { label: 'Profit Bersih', value: stats.total_profit_month, icon: TrendingUp, color: 'from-blue-500 to-indigo-500', change: '+38%' },
           { label: 'Total Komisi', value: stats.total_income_month - stats.total_profit_month, icon: Wallet, color: 'from-purple-500 to-pink-500', change: '+52%' },
-          { label: 'Rata-rata/Order', value: Math.round(stats.total_income_month / stats.completed_orders), icon: PieChart, color: 'from-cyan-500 to-blue-500', change: '+12%' },
+          { label: 'Rata-rata/Order', value: Math.round(stats.total_income_month / Math.max(1, stats.completed_orders)), icon: PieChart, color: 'from-cyan-500 to-blue-500', change: '+12%' },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -79,24 +98,24 @@ export default function FinancePage() {
         <h3 className="font-semibold mb-6">Riwayat Transaksi</h3>
         <div className="space-y-3">
           {transactions.map((tx) => (
-            <div key={tx.id} className="flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-border hover:border-primary/20 transition-colors">
+            <div key={tx.id as string} className="flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-border hover:border-primary/20 transition-colors">
               <div className="flex items-center gap-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  tx.type === 'income' ? 'bg-green-500/10' : 'bg-red-500/10'
+                  tx.type === 'income' || tx.type === 'PAYMENT' ? 'bg-green-500/10' : 'bg-red-500/10'
                 }`}>
-                  {tx.type === 'income' ? (
+                  {tx.type === 'income' || tx.type === 'PAYMENT' ? (
                     <TrendingUp className="w-5 h-5 text-green-400" />
                   ) : (
                     <TrendingDown className="w-5 h-5 text-red-400" />
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium">{tx.desc}</p>
-                  <p className="text-xs text-muted">{tx.date}</p>
+                  <p className="text-sm font-medium">{(tx.desc ?? tx.description ?? tx.type) as string}</p>
+                  <p className="text-xs text-muted">{(tx.date ?? tx.created_at) as string}</p>
                 </div>
               </div>
-              <span className={`font-bold ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+              <span className={`font-bold ${tx.type === 'income' || tx.type === 'PAYMENT' ? 'text-green-400' : 'text-red-400'}`}>
+                {tx.type === 'income' || tx.type === 'PAYMENT' ? '+' : '-'}{formatCurrency(tx.amount as number)}
               </span>
             </div>
           ))}
