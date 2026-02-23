@@ -8,6 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
@@ -95,6 +96,7 @@ model Order {
   pages          Int?
   revisions_left Int           @default(2)
   result_files   String[]
+  progress       Int           @default(0)
   voucher_id     String?
   discount       Decimal       @default(0)
   created_at     DateTime      @default(now())

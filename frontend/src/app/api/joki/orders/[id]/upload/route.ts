@@ -38,6 +38,7 @@ export async function POST(
       data: {
         result_files,
         status: 'COMPLETED',
+        progress: 100,
       },
     });
 
@@ -45,9 +46,19 @@ export async function POST(
     await prisma.notification.create({
       data: {
         user_id: order.user_id,
-        title: 'Hasil Siap',
+        title: 'Hasil Siap! 🎉',
         message: `Hasil untuk order ${order.order_number} sudah tersedia. Silakan review dan download.${notes ? ` Catatan: ${notes}` : ''}`,
         type: 'FILE_READY',
+      },
+    });
+
+    // Auto-chat: notify customer via chat
+    await prisma.chatMessage.create({
+      data: {
+        order_id: order.id,
+        sender_id: auth.user.userId,
+        sender_role: 'JOKI',
+        message: `✅ Hasil pekerjaan sudah selesai dan diupload! (${result_files.length} file)\n\nSilakan cek dan review hasilnya.${notes ? `\n\n📝 Catatan: ${notes}` : ''}`,
       },
     });
 
@@ -74,7 +85,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { status, notes } = body;
+    const { status, progress, notes } = body;
 
     const joki = await prisma.jokiMember.findUnique({ where: { user_id: auth.user.userId } });
     if (!joki) return apiError('Profil joki tidak ditemukan', 404);
@@ -89,6 +100,7 @@ export async function PATCH(
 
     const data: Record<string, unknown> = {};
     if (status) data.status = String(status).toUpperCase();
+    if (typeof progress === 'number') data.progress = Math.min(100, Math.max(0, progress));
 
     // If status moves to COMPLETED without files, block
     if (data.status === 'COMPLETED' && (order.result_files?.length ?? 0) === 0) {
@@ -100,12 +112,29 @@ export async function PATCH(
       data,
     });
 
-    if (notes) {
+    // Build update message for chat
+    const chatParts: string[] = [];
+    if (data.progress) chatParts.push(`📊 Progress: ${data.progress}%`);
+    if (data.status) chatParts.push(`📌 Status: ${String(data.status).replace(/_/g, ' ')}`);
+    if (notes) chatParts.push(`📝 ${notes}`);
+
+    if (chatParts.length > 0) {
+      // Auto-chat: send progress update to customer
+      await prisma.chatMessage.create({
+        data: {
+          order_id: order.id,
+          sender_id: auth.user.userId,
+          sender_role: 'JOKI',
+          message: `🔄 Update Pesanan\n\n${chatParts.join('\n')}`,
+        },
+      });
+
+      // Notification
       await prisma.notification.create({
         data: {
           user_id: order.user_id,
-          title: 'Update Order',
-          message: `Progress order ${order.order_number}: ${notes}`,
+          title: 'Update Progress Order',
+          message: `Order ${order.order_number}: ${chatParts.join(' | ')}`,
           type: 'ORDER_UPDATE',
         },
       });
@@ -117,3 +146,4 @@ export async function PATCH(
     return apiError('Internal server error', 500);
   }
 }
+

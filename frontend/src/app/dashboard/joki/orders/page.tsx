@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { apiGetOrders, apiJokiUpdateProgress } from '@/lib/api';
 import {
   ClipboardList, Clock, CheckCircle, Play, AlertCircle,
   Timer, Eye, MessageSquare, Upload, ChevronDown,
-  Filter, Search, XCircle, RotateCcw
+  Filter, Search, XCircle, RotateCcw, Sliders, Send
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -31,6 +32,10 @@ export default function JokiOrdersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [progressModal, setProgressModal] = useState<{ id: string; title: string; orderNumber: string; progress: number } | null>(null);
+  const [progValue, setProgValue] = useState(0);
+  const [progNotes, setProgNotes] = useState('');
+  const [progSending, setProgSending] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -74,6 +79,39 @@ export default function JokiOrdersPage() {
     router.push(`/dashboard/joki/upload?orderId=${orderId}`);
   }
 
+  function openProgressModal(order: Record<string, unknown>) {
+    setProgressModal({
+      id: order.id as string,
+      title: order.title as string,
+      orderNumber: (order.order_number as string) || (order.id as string),
+      progress: (order.progress as number) ?? 0,
+    });
+    setProgValue((order.progress as number) ?? 0);
+    setProgNotes('');
+  }
+
+  async function handleProgressUpdate() {
+    if (!progressModal) return;
+    setProgSending(true);
+    try {
+      const res = await apiJokiUpdateProgress(progressModal.id, {
+        progress: progValue,
+        notes: progNotes || `Progress diupdate ke ${progValue}%`,
+      });
+      if (res.success) {
+        setOrders((prev) => prev.map((o) => o.id === progressModal.id ? { ...o, progress: progValue } : o));
+        setProgressModal(null);
+      } else {
+        alert(res.error || 'Gagal update progress');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setProgSending(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -98,11 +136,10 @@ export default function JokiOrdersPage() {
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                statusFilter === status
-                  ? 'bg-gradient-to-r from-accent to-primary text-white'
-                  : 'bg-surface-2 border border-border text-muted hover:border-primary/30'
-              }`}
+              className={`px-4 py-2.5 rounded-xl text-xs font-medium transition-all ${statusFilter === status
+                ? 'bg-gradient-to-r from-accent to-primary text-white'
+                : 'bg-surface-2 border border-border text-muted hover:border-primary/30'
+                }`}
             >
               {status === 'all' ? 'Semua' : STATUS_CONFIG[status]?.label}
             </button>
@@ -134,11 +171,10 @@ export default function JokiOrdersPage() {
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusCfg.color}`}>
                         {statusCfg.label}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                        order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
                         order.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
-                        'bg-green-500/10 text-green-400'
-                      }`}>
+                          'bg-green-500/10 text-green-400'
+                        }`}>
                         {order.priority === 'high' ? '🔥 Mendesak' : order.priority === 'medium' ? '⚡ Normal' : '🌿 Santai'}
                       </span>
                     </div>
@@ -167,11 +203,10 @@ export default function JokiOrdersPage() {
                     </div>
                     <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all ${
-                          (order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                        className={`h-full rounded-full transition-all ${(order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
                           (order.progress as number) >= 30 ? 'bg-gradient-to-r from-accent to-primary' :
-                          'bg-gradient-to-r from-yellow-500 to-orange-400'
-                        }`}
+                            'bg-gradient-to-r from-yellow-500 to-orange-400'
+                          }`}
                         style={{ width: `${(order.progress as number) ?? 0}%` }}
                       />
                     </div>
@@ -191,26 +226,47 @@ export default function JokiOrdersPage() {
                   {status === 'IN_PROGRESS' && (
                     <>
                       <button
-                        onClick={() => goToUpload(order.id as string)}
+                        onClick={(e) => { e.stopPropagation(); openProgressModal(order); }}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
+                      >
+                        <Sliders className="w-3 h-3" />
+                        Update Progress
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); goToUpload(order.id as string); }}
                         className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
                       >
                         <Upload className="w-3 h-3" />
                         Upload Hasil
                       </button>
-                      <button className="px-4 py-2 bg-surface-2 border border-border rounded-xl text-xs hover:border-primary/30 flex items-center gap-1">
+                      <Link
+                        href={`/orders/${order.id as string}/chat`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-2 bg-surface-2 border border-border rounded-xl text-xs hover:border-primary/30 flex items-center gap-1"
+                      >
                         <MessageSquare className="w-3 h-3" />
                         Chat Customer
-                      </button>
+                      </Link>
                     </>
                   )}
                   {status === 'REVISION' && (
-                    <button
-                      onClick={() => goToUpload(order.id as string)}
-                      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
-                    >
-                      <Upload className="w-3 h-3" />
-                      Upload Revisi
-                    </button>
+                    <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); goToUpload(order.id as string); }}
+                        className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
+                      >
+                        <Upload className="w-3 h-3" />
+                        Upload Revisi
+                      </button>
+                      <Link
+                        href={`/orders/${order.id as string}/chat`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-2 bg-surface-2 border border-border rounded-xl text-xs hover:border-primary/30 flex items-center gap-1"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        Chat Customer
+                      </Link>
+                    </>
                   )}
                   {status === 'COMPLETED' && (
                     <span className="px-4 py-2 bg-green-500/10 text-green-400 rounded-xl text-xs font-medium flex items-center gap-1">
@@ -277,9 +333,114 @@ export default function JokiOrdersPage() {
               </div>
             </div>
 
-            <button onClick={() => setSelectedOrder(null)} className="w-full py-3 bg-surface-2 border border-border rounded-xl hover:border-primary/30 text-sm">
-              Tutup
-            </button>
+            <div className="flex gap-3">
+              <Link
+                href={`/orders/${selectedOrder.id as string}/chat`}
+                className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium text-center hover:opacity-90 flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Chat Customer
+              </Link>
+              <button onClick={() => setSelectedOrder(null)} className="flex-1 py-3 bg-surface-2 border border-border rounded-xl hover:border-primary/30 text-sm">
+                Tutup
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      {/* Progress Update Modal */}
+      {progressModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setProgressModal(null)}>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="glass rounded-2xl p-8 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                <Sliders className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Update Progress</h3>
+                <p className="text-xs text-muted">{progressModal.orderNumber}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted mb-4">{progressModal.title}</p>
+
+            {/* Progress Slider */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Progress</span>
+                <span className={`text-lg font-bold ${progValue >= 75 ? 'text-green-400' :
+                  progValue >= 50 ? 'text-blue-400' :
+                    progValue >= 25 ? 'text-yellow-400' : 'text-muted'
+                  }`}>{progValue}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={progValue}
+                onChange={(e) => setProgValue(Number(e.target.value))}
+                className="w-full h-2 bg-surface-2 rounded-full appearance-none cursor-pointer accent-primary"
+              />
+              <div className="flex gap-2 mt-3">
+                {[25, 50, 75, 100].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setProgValue(val)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${progValue === val
+                      ? 'bg-gradient-to-r from-primary to-accent text-white'
+                      : 'bg-surface-2 border border-border hover:border-primary/30'
+                      }`}
+                  >
+                    {val}%
+                  </button>
+                ))}
+              </div>
+
+              {/* Progress Bar Preview */}
+              <div className="mt-3 h-3 bg-surface-2 rounded-full overflow-hidden">
+                <motion.div
+                  animate={{ width: `${progValue}%` }}
+                  className={`h-full rounded-full ${progValue >= 75 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                    progValue >= 50 ? 'bg-gradient-to-r from-blue-500 to-indigo-400' :
+                      progValue >= 25 ? 'bg-gradient-to-r from-yellow-500 to-orange-400' :
+                        'bg-gradient-to-r from-gray-400 to-gray-500'
+                    }`}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="mb-6">
+              <label className="text-sm font-medium mb-2 block">Catatan untuk Customer</label>
+              <textarea
+                value={progNotes}
+                onChange={(e) => setProgNotes(e.target.value)}
+                placeholder="Contoh: Sedang tahap riset dan pengumpulan referensi..."
+                rows={3}
+                className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm placeholder:text-muted focus:outline-none focus:border-primary/50 resize-none"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button onClick={() => setProgressModal(null)} className="flex-1 py-3 bg-surface-2 border border-border rounded-xl hover:border-primary/30 text-sm">
+                Batal
+              </button>
+              <button
+                onClick={handleProgressUpdate}
+                disabled={progSending}
+                className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+              >
+                <Send className="w-4 h-4" />
+                {progSending ? 'Mengirim...' : 'Kirim Update'}
+              </button>
+            </div>
           </motion.div>
         </div>
       )}

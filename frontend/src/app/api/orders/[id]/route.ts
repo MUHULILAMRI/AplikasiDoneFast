@@ -109,7 +109,7 @@ export async function PATCH(
       data: updateData,
       include: {
         service: { select: { name: true, category: true } },
-        joki: { select: { id: true, name: true } },
+        joki: { select: { id: true, name: true, user_id: true } },
       },
     });
 
@@ -123,6 +123,61 @@ export async function PATCH(
           type: 'ORDER_UPDATE',
         },
       });
+    }
+
+    // Auto-create welcome chat message when joki is assigned
+    if (updateData.joki_id && updated.joki) {
+      const jokiUserId = (updated.joki as Record<string, unknown>).user_id as string;
+      if (jokiUserId) {
+        await prisma.chatMessage.create({
+          data: {
+            order_id: order.id,
+            sender_id: jokiUserId,
+            sender_role: 'JOKI',
+            message: `Halo! Saya ${updated.joki.name} yang akan mengerjakan pesanan "${order.title}" (${order.order_number}). Silakan hubungi saya jika ada pertanyaan atau detail tambahan yang perlu disampaikan. 🚀`,
+          },
+        });
+
+        // Notify customer about new joki assignment + chat
+        await prisma.notification.create({
+          data: {
+            user_id: order.user_id,
+            title: 'Joki Telah Di-assign!',
+            message: `${updated.joki.name} akan mengerjakan order ${order.order_number}. Chat sudah tersedia!`,
+            type: 'ORDER_UPDATE',
+          },
+        });
+      }
+    }
+
+    // Auto-create chat message when joki starts working (IN_PROGRESS)
+    if (updateData.status === 'IN_PROGRESS' && !updateData.joki_id) {
+      // Get joki user_id from joki member
+      if (order.joki_id) {
+        const jokiMember = await prisma.jokiMember.findUnique({
+          where: { id: order.joki_id },
+          select: { user_id: true, name: true },
+        });
+        if (jokiMember) {
+          await prisma.chatMessage.create({
+            data: {
+              order_id: order.id,
+              sender_id: jokiMember.user_id,
+              sender_role: 'JOKI',
+              message: `Saya sudah mulai mengerjakan pesanan "${order.title}". Akan saya kabari progressnya di sini. 💪`,
+            },
+          });
+
+          await prisma.notification.create({
+            data: {
+              user_id: order.user_id,
+              title: 'Order Mulai Dikerjakan!',
+              message: `${jokiMember.name} sudah mulai mengerjakan ${order.order_number}. Pantau progress via chat!`,
+              type: 'ORDER_UPDATE',
+            },
+          });
+        }
+      }
     }
 
     return apiSuccess(updated);

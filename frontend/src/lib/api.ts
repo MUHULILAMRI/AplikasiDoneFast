@@ -168,13 +168,13 @@ export async function apiSendMessage(orderId: string, message: string, fileUrl?:
 // Notification APIs
 // ============================================
 export async function apiGetNotifications() {
-  return request<unknown[]>('/notifications');
+  return request<unknown>('/notifications');
 }
 
 export async function apiMarkNotificationRead(ids: string[]) {
   return request<unknown>('/notifications', {
     method: 'PATCH',
-    body: JSON.stringify({ ids }),
+    body: JSON.stringify({ notification_ids: ids }),
   });
 }
 

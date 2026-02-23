@@ -14,6 +14,12 @@ export async function POST(req: NextRequest) {
       return apiError('Email dan password wajib diisi');
     }
 
+    // Check DATABASE_URL tersedia
+    if (!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('[your-project-ref]')) {
+      console.error('[LOGIN] DATABASE_URL belum dikonfigurasi di .env.local');
+      return apiError('Konfigurasi database belum selesai. Hubungi administrator.', 500);
+    }
+
     // Find user in database
     const user = await prisma.user.findUnique({ where: { email } });
 
@@ -47,7 +53,9 @@ export async function POST(req: NextRequest) {
       token,
     });
   } catch (error) {
-    console.error('Login error:', error);
-    return apiError('Internal server error', 500);
+    const err = error as Error;
+    console.error('[LOGIN] Error:', err.message);
+    console.error('[LOGIN] Stack:', err.stack);
+    return apiError(`Internal server error: ${err.message}`, 500);
   }
 }

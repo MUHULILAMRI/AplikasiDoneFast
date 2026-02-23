@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { apiJokiDashboard } from '@/lib/api';
+import Link from 'next/link';
 import {
   ClipboardList, Clock, CheckCircle, DollarSign,
   Star, TrendingUp, AlertCircle, ArrowUpRight,
-  Timer, Target, Zap, Award
+  Timer, Target, Zap, Award, MessageSquare
 } from 'lucide-react';
 
 export default function JokiDashboardPage() {
@@ -119,11 +120,10 @@ export default function JokiDashboardPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-mono text-xs text-muted">{(order.order_number as string) || (order.id as string)}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                        order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
                         order.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
-                        'bg-green-500/10 text-green-400'
-                      }`}>
+                          'bg-green-500/10 text-green-400'
+                        }`}>
                         {order.priority === 'high' ? 'Mendesak' : order.priority === 'medium' ? 'Normal' : 'Santai'}
                       </span>
                     </div>
@@ -143,12 +143,20 @@ export default function JokiDashboardPage() {
                     initial={{ width: 0 }}
                     animate={{ width: `${order.progress as number ?? 0}%` }}
                     transition={{ delay: 0.5 + i * 0.1, duration: 0.5 }}
-                    className={`h-full rounded-full ${
-                      (order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                    className={`h-full rounded-full ${(order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
                       (order.progress as number) >= 30 ? 'bg-gradient-to-r from-primary to-primary-light' :
-                      'bg-gradient-to-r from-yellow-500 to-orange-400'
-                    }`}
+                        'bg-gradient-to-r from-yellow-500 to-orange-400'
+                      }`}
                   />
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <Link
+                    href={`/orders/${order.id as string}/chat`}
+                    className="px-3 py-1.5 bg-surface border border-border rounded-lg text-[11px] hover:border-primary/30 flex items-center gap-1 transition-colors"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    Chat Customer
+                  </Link>
                 </div>
               </motion.div>
             ))}
