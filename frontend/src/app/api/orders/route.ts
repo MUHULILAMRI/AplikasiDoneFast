@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     if ('error' in auth) return auth.error;
 
     const body = await req.json();
-    const { service_id, title, description, requirements, deadline, pages, difficulty, voucher_code } = body;
+    const { service_id, title, description, requirements, deadline, pages, voucher_code } = body;
 
     if (!service_id || !title || !deadline) {
       return apiError('Service, title, dan deadline wajib diisi');
@@ -69,18 +69,30 @@ export async function POST(req: NextRequest) {
     const service = await prisma.service.findUnique({ where: { id: service_id } });
     if (!service) return apiError('Layanan tidak ditemukan', 404);
 
-    // Calculate price
-    let price = Number(service.base_price);
-    const diffMultiplier: Record<string, number> = { EASY: 0.8, MEDIUM: 1, HARD: 1.3, EXPERT: 1.5 };
-    price *= diffMultiplier[difficulty || 'MEDIUM'] || 1;
-    if (pages) price += pages * 15000;
+    // Load pricing settings from DB
+    const settingsRows = await prisma.siteSettings.findMany();
+    const cfg: Record<string, string> = {};
+    for (const r of settingsRows) cfg[r.key] = r.value;
 
-    // Deadline urgency
+    const perPage = Number(cfg.price_per_page || '15000');
+    const taxPercent = Number(cfg.tax_percent || '0');
+    const mult1d = Number(cfg.deadline_1day_multiplier || '1.5');
+    const mult3d = Number(cfg.deadline_3day_multiplier || '1.3');
+
+    // Calculate price (without difficulty — joki determines extra charges)
+    let price = Number(service.base_price);
+    if (pages) price += pages * perPage;
+
+    // Deadline urgency (only for 3 days or less)
     const deadlineDate = new Date(deadline);
     const daysUntil = Math.ceil((deadlineDate.getTime() - Date.now()) / 86400000);
-    if (daysUntil <= 1) price *= 1.5;
-    else if (daysUntil <= 3) price *= 1.3;
-    else if (daysUntil <= 7) price *= 1.1;
+    if (daysUntil <= 1) price *= mult1d;
+    else if (daysUntil <= 3) price *= mult3d;
+
+    // Tax / admin fee
+    if (taxPercent > 0) {
+      price += price * (taxPercent / 100);
+    }
 
     // Voucher
     let discount = 0;
@@ -106,7 +118,7 @@ export async function POST(req: NextRequest) {
         requirements: requirements || '',
         deadline: deadlineDate,
         price: Math.round(price - discount),
-        difficulty: difficulty || 'MEDIUM',
+        difficulty: 'MEDIUM',
         pages,
         discount,
         voucher_id: voucherId,

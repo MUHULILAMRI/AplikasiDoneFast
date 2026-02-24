@@ -6,11 +6,11 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { apiGetService, apiGetServices, apiCreateOrder, apiEstimatePrice } from '@/lib/api';
+import { apiGetService, apiGetServices, apiCreateOrder, apiEstimatePrice, apiGetSettings } from '@/lib/api';
 import { formatCurrency, estimatePrice, getCategoryLabel } from '@/lib/utils';
-import { 
-  Upload, Calendar, FileText, ArrowRight, ArrowLeft, 
-  Zap, Shield, Clock, Star, CheckCircle2, AlertCircle 
+import {
+  Upload, Calendar, FileText, ArrowRight, ArrowLeft,
+  Zap, Shield, Clock, Star, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import type { DifficultyLevel, Service } from '@/types';
 
@@ -19,10 +19,12 @@ function OrderForm() {
   const serviceId = searchParams.get('service');
   const [service, setService] = useState<Service | null>(null);
   const [loadingService, setLoadingService] = useState(true);
+  const [siteSettings, setSiteSettings] = useState<Record<string, string> | null>(null);
 
   useEffect(() => {
     async function load() {
       setLoadingService(true);
+      let loaded = false;
       if (serviceId) {
         const res = await apiGetService(serviceId);
         if (res.success) {
@@ -40,10 +42,11 @@ function OrderForm() {
             features: s.features as string[],
             is_popular: s.is_popular as boolean,
           });
+          loaded = true;
         }
       }
-      if (!service) {
-        // Fallback: load first service
+      if (!loaded) {
+        // Fallback: load first service only if no specific service was loaded
         const all = await apiGetServices();
         if (all.success && (all.data as unknown[]).length > 0) {
           const s = (all.data as Record<string, unknown>[])[0];
@@ -65,7 +68,11 @@ function OrderForm() {
       setLoadingService(false);
     }
     load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Load pricing settings
+    apiGetSettings().then(res => {
+      if (res.success) setSiteSettings(res.data as Record<string, string>);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceId]);
 
   const [step, setStep] = useState(1);
@@ -75,7 +82,6 @@ function OrderForm() {
     requirements: '',
     pages: 1,
     deadline_days: 7,
-    difficulty: 'medium' as DifficultyLevel,
     deadline: '',
     files: [] as File[],
     voucher: '',
@@ -84,9 +90,9 @@ function OrderForm() {
   const priceEstimate = service ? estimatePrice({
     pages: formData.pages,
     deadline_days: formData.deadline_days,
-    difficulty: formData.difficulty,
     category: service.category,
-  }) : { base_price: 0, difficulty_multiplier: 1, deadline_multiplier: 1, pages_cost: 0, total: 0 };
+    settings: siteSettings || undefined,
+  }) : { base_price: 0, deadline_multiplier: 1, pages_cost: 0, tax_amount: 0, total: 0 };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -117,7 +123,6 @@ function OrderForm() {
       description: formData.description,
       requirements: formData.requirements || '-',
       pages: formData.pages,
-      difficulty: formData.difficulty.toUpperCase(),
       deadline: deadline.toISOString(),
       voucher_code: formData.voucher || undefined,
     });
@@ -166,11 +171,10 @@ function OrderForm() {
           <div className="flex items-center gap-4 mb-10">
             {['Detail Tugas', 'Upload File', 'Review & Bayar'].map((label, i) => (
               <div key={i} className="flex items-center gap-2 flex-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                  step > i + 1 ? 'bg-accent-green text-white' :
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${step > i + 1 ? 'bg-accent-green text-white' :
                   step === i + 1 ? 'bg-gradient-to-r from-primary to-primary-light text-white glow-primary' :
-                  'bg-surface-2 text-muted border border-border'
-                }`}>
+                    'bg-surface-2 text-muted border border-border'
+                  }`}>
                   {step > i + 1 ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
                 </div>
                 <span className={`text-sm hidden sm:block ${step === i + 1 ? 'text-foreground font-medium' : 'text-muted'}`}>
@@ -228,7 +232,7 @@ function OrderForm() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium mb-2">Jumlah Halaman</label>
                         <input
@@ -254,19 +258,6 @@ function OrderForm() {
                           <option value={30}>30 hari</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Tingkat Kesulitan</label>
-                        <select
-                          value={formData.difficulty}
-                          onChange={(e) => setFormData({ ...formData, difficulty: e.target.value as DifficultyLevel })}
-                          className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50 transition-colors cursor-pointer"
-                        >
-                          <option value="easy">Mudah</option>
-                          <option value="medium">Sedang</option>
-                          <option value="hard">Sulit</option>
-                          <option value="expert">Expert</option>
-                        </select>
-                      </div>
                     </div>
                   </div>
                 )}
@@ -275,7 +266,7 @@ function OrderForm() {
                 {step === 2 && (
                   <div className="space-y-6">
                     <h2 className="text-xl font-semibold mb-6">Upload File Pendukung</h2>
-                    
+
                     <div className="border-2 border-dashed border-border rounded-2xl p-10 text-center hover:border-primary/50 transition-colors">
                       <input
                         type="file"
@@ -354,7 +345,7 @@ function OrderForm() {
                         <h3 className="text-sm text-muted mb-1">Deskripsi</h3>
                         <p className="text-sm">{formData.description || '-'}</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 bg-surface-2 rounded-xl border border-border">
                           <h3 className="text-sm text-muted mb-1">Halaman</h3>
                           <p className="font-medium">{formData.pages}</p>
@@ -362,10 +353,6 @@ function OrderForm() {
                         <div className="p-4 bg-surface-2 rounded-xl border border-border">
                           <h3 className="text-sm text-muted mb-1">Deadline</h3>
                           <p className="font-medium">{formData.deadline_days} hari</p>
-                        </div>
-                        <div className="p-4 bg-surface-2 rounded-xl border border-border">
-                          <h3 className="text-sm text-muted mb-1">Kesulitan</h3>
-                          <p className="font-medium capitalize">{formData.difficulty}</p>
                         </div>
                       </div>
                       <div className="p-4 bg-surface-2 rounded-xl border border-border">
@@ -449,10 +436,6 @@ function OrderForm() {
                     <span>{formatCurrency(priceEstimate.base_price)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted">Kesulitan (×{priceEstimate.difficulty_multiplier})</span>
-                    <span>{formatCurrency(priceEstimate.base_price * priceEstimate.difficulty_multiplier)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
                     <span className="text-muted">Deadline (×{priceEstimate.deadline_multiplier})</span>
                     <span className={priceEstimate.deadline_multiplier > 1 ? 'text-orange-400' : ''}>
                       {priceEstimate.deadline_multiplier > 1 ? '+' : ''}{formatCurrency(priceEstimate.base_price * (priceEstimate.deadline_multiplier - 1))}
@@ -462,6 +445,12 @@ function OrderForm() {
                     <span className="text-muted">Biaya halaman ({formData.pages} hal)</span>
                     <span>{formatCurrency(priceEstimate.pages_cost)}</span>
                   </div>
+                  {priceEstimate.tax_amount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted">Pajak/Admin Fee</span>
+                      <span>{formatCurrency(priceEstimate.tax_amount)}</span>
+                    </div>
+                  )}
                   <hr className="border-border" />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>

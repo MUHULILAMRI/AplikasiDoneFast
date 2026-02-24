@@ -75,6 +75,13 @@ export async function apiGetMe() {
   return request<Record<string, unknown>>('/auth/me');
 }
 
+export async function apiUpdateProfile(data: { name?: string; phone?: string; avatar?: string }) {
+  return request<Record<string, unknown>>('/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
 // ============================================
 // Services APIs
 // ============================================
@@ -162,6 +169,10 @@ export async function apiSendMessage(orderId: string, message: string, fileUrl?:
     method: 'POST',
     body: JSON.stringify({ message, file_url: fileUrl }),
   });
+}
+
+export async function apiGetUnreadCounts() {
+  return request<Record<string, number>>('/chat/unread');
 }
 
 // ============================================
@@ -300,6 +311,20 @@ export async function apiJokiUpload(orderId: string, data: Record<string, unknow
 export async function apiJokiUpdateProgress(orderId: string, data: Record<string, unknown>) {
   return request<unknown>(`/joki/orders/${orderId}/upload`, {
     method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+// ============================================
+// Site Settings APIs
+// ============================================
+export async function apiGetSettings() {
+  return request<Record<string, string>>('/settings');
+}
+
+export async function apiUpdateSettings(data: Record<string, string>) {
+  return request<unknown>('/settings', {
+    method: 'PUT',
     body: JSON.stringify(data),
   });
 }

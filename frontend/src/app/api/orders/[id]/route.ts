@@ -49,6 +49,12 @@ export async function GET(
     if (auth.user.role === 'CUSTOMER' && order.user_id !== auth.user.userId) {
       return apiError('Tidak memiliki akses', 403);
     }
+    if (auth.user.role === 'JOKI') {
+      const jokiMember = await prisma.jokiMember.findUnique({ where: { user_id: auth.user.userId } });
+      if (!jokiMember || order.joki_id !== jokiMember.id) {
+        return apiError('Tidak memiliki akses', 403);
+      }
+    }
 
     return apiSuccess(order);
   } catch (error) {

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/store/useAppStore';
-import { apiGetOrders } from '@/lib/api';
+import { apiGetOrders, apiGetUnreadCounts } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import Navbar from '@/components/layout/Navbar';
 import {
@@ -57,15 +57,22 @@ export default function OrdersPage() {
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
+    const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
     const loadOrders = async (status: string) => {
         setLoading(true);
         const params: Record<string, unknown> = { limit: 50 };
         if (status) params.status = status;
-        const res = await apiGetOrders(params as { status?: string; page?: number; limit?: number });
+        const [res, unreadRes] = await Promise.all([
+            apiGetOrders(params as { status?: string; page?: number; limit?: number }),
+            apiGetUnreadCounts(),
+        ]);
         if (res.success) {
             const d = res.data as { data?: OrderItem[] } | OrderItem[];
             setOrders(Array.isArray(d) ? d : (d.data ?? []));
+        }
+        if (unreadRes.success) {
+            setUnreadCounts(unreadRes.data as Record<string, number>);
         }
         setLoading(false);
     };
@@ -120,8 +127,8 @@ export default function OrdersPage() {
                                 key={tab.value}
                                 onClick={() => setStatusFilter(tab.value)}
                                 className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all ${statusFilter === tab.value
-                                        ? 'bg-gradient-to-r from-primary to-primary-light text-white'
-                                        : 'bg-surface-2 text-muted hover:text-foreground border border-border'
+                                    ? 'bg-gradient-to-r from-primary to-primary-light text-white'
+                                    : 'bg-surface-2 text-muted hover:text-foreground border border-border'
                                     }`}
                             >
                                 {tab.label}
@@ -193,10 +200,15 @@ export default function OrdersPage() {
                                                 {order.joki && !['COMPLETED', 'CANCELLED', 'PENDING_PAYMENT'].includes(order.status) && (
                                                     <Link
                                                         href={`/orders/${order.id}/chat`}
-                                                        className="p-2 rounded-lg bg-surface-2 border border-border hover:border-primary/30 transition-colors"
+                                                        className="relative p-2 rounded-lg bg-surface-2 border border-border hover:border-primary/30 transition-colors"
                                                         title="Chat Joki"
                                                     >
                                                         <MessageSquare className="w-4 h-4 text-primary-light" />
+                                                        {(unreadCounts[order.id] || 0) > 0 && (
+                                                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-[9px] text-white flex items-center justify-center font-bold">
+                                                                {unreadCounts[order.id]}
+                                                            </span>
+                                                        )}
                                                     </Link>
                                                 )}
                                                 <Link

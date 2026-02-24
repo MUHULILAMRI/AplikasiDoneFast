@@ -267,3 +267,14 @@ model Referral {
 
   @@map("referrals")
 }
+
+// ============================================
+// Site Settings (Key-Value Store)
+// ============================================
+model SiteSettings {
+  key        String   @id
+  value      String
+  updated_at DateTime @updatedAt
+
+  @@map("site_settings")
+}

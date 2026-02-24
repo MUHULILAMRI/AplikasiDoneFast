@@ -149,14 +149,13 @@ export default function CommissionPage() {
               className="flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-border"
             >
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  tx.type === 'withdrawal' ? 'bg-red-500/10' :
-                  tx.type === 'bonus' ? 'bg-yellow-500/10' :
-                  'bg-green-500/10'
-                }`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'withdrawal' ? 'bg-red-500/10' :
+                    tx.type === 'bonus' ? 'bg-yellow-500/10' :
+                      'bg-green-500/10'
+                  }`}>
                   {tx.type === 'withdrawal' ? <ArrowUpRight className="w-5 h-5 text-red-400" /> :
-                   tx.type === 'bonus' ? <DollarSign className="w-5 h-5 text-yellow-400" /> :
-                   <ArrowDownLeft className="w-5 h-5 text-green-400" />}
+                    tx.type === 'bonus' ? <DollarSign className="w-5 h-5 text-yellow-400" /> :
+                      <ArrowDownLeft className="w-5 h-5 text-green-400" />}
                 </div>
                 <div>
                   <p className="text-sm font-medium">{tx.title as string}</p>
@@ -170,10 +169,9 @@ export default function CommissionPage() {
                 <p className={`font-bold text-sm ${(tx.amount as number) > 0 ? 'text-accent-green' : 'text-red-400'}`}>
                   {(tx.amount as number) > 0 ? '+' : ''}{formatCurrency(Math.abs(tx.amount as number))}
                 </p>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                  tx.status === 'paid' || tx.status === 'completed' ? 'bg-green-500/10 text-green-400' :
-                  'bg-yellow-500/10 text-yellow-400'
-                }`}>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${tx.status === 'paid' || tx.status === 'completed' ? 'bg-green-500/10 text-green-400' :
+                    'bg-yellow-500/10 text-yellow-400'
+                  }`}>
                   {tx.status === 'paid' ? 'Dibayar' : tx.status === 'completed' ? 'Selesai' : 'Pending'}
                 </span>
               </div>
@@ -201,10 +199,12 @@ export default function CommissionPage() {
               <div>
                 <label className="block text-sm font-medium mb-2">Metode Penarikan</label>
                 <select className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm focus:outline-none focus:border-primary/50">
-                  <option>DANA - 081234567890</option>
-                  <option>OVO - 081234567890</option>
-                  <option>Bank BCA - 1234567890</option>
-                  <option>GoPay - 081234567890</option>
+                  <option>DANA - 082291220759</option>
+                  <option>OVO - 082291220759</option>
+                  <option>GoPay - 082291220759</option>
+                  <option>ShopeePay - 082291220759</option>
+                  <option>Bank BRI - 082291220759</option>
+                  <option>SeaBank - 082291220759</option>
                 </select>
               </div>
               <div className="flex gap-3 mt-6">

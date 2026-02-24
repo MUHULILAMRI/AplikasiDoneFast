@@ -6,7 +6,7 @@ import { apiSuccess, apiError } from '@/lib/auth';
 
 const FAQ_RESPONSES: Record<string, string> = {
   harga: 'Harga layanan kami bervariasi tergantung jenis tugas, tingkat kesulitan, dan deadline. Kamu bisa cek estimasi harga di halaman order atau gunakan kalkulator harga otomatis kami. Harga mulai dari Rp 50.000 untuk tugas sederhana.',
-  bayar: 'Kami menerima pembayaran via QRIS, DANA, OVO, Transfer Bank (BCA, BNI, BRI, Mandiri), dan E-Wallet lainnya. Semua pembayaran diproses secara aman melalui payment gateway Midtrans.',
+  bayar: 'Kami menerima pembayaran via QRIS, DANA, OVO, GoPay, ShopeePay (ke nomor 082291220759), dan Transfer Bank (BRI & SeaBank ke rekening 082291220759 a.n. DoneFast). Semua pembayaran diproses secara aman.',
   revisi: 'Setiap order mendapat 2x revisi gratis. Revisi tambahan bisa diajukan dengan biaya tambahan. Revisi harus diajukan dalam 7 hari setelah hasil dikirim.',
   deadline: 'Kami menerima deadline mulai dari 24 jam (express) hingga 30 hari. Semakin cepat deadline, ada tambahan biaya urgency. Kami menjamin pengerjaan selesai sebelum deadline.',
   garansi: 'Kami memberikan garansi 100% uang kembali jika hasil tidak sesuai brief. Setiap tugas juga dicek plagiarisme untuk memastikan originalitas. Rating joki kami rata-rata 4.8/5.',

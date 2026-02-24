@@ -19,11 +19,26 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    // Verify order access
+    // Find the order
     const order = await prisma.order.findFirst({
       where: { OR: [{ id: orderId }, { order_number: orderId }] },
+      include: {
+        joki: { select: { id: true, user_id: true } },
+      },
     });
     if (!order) return apiError('Order tidak ditemukan', 404);
+
+    // Verify access: admin unrestricted, customer must own order, joki must be assigned
+    if (auth.user.role === 'CUSTOMER' && order.user_id !== auth.user.userId) {
+      return apiError('Tidak memiliki akses ke chat ini', 403);
+    }
+    if (auth.user.role === 'JOKI') {
+      const joki = await prisma.jokiMember.findUnique({ where: { user_id: auth.user.userId } });
+      if (!joki || order.joki_id !== joki.id) {
+        return apiError('Tidak memiliki akses ke chat ini', 403);
+      }
+    }
+    // ADMIN has unrestricted access — no additional check needed
 
     const messages = await prisma.chatMessage.findMany({
       where: { order_id: order.id },
@@ -70,8 +85,24 @@ export async function POST(
 
     const order = await prisma.order.findFirst({
       where: { OR: [{ id: orderId }, { order_number: orderId }] },
+      include: {
+        joki: { select: { id: true, user_id: true, name: true } },
+        user: { select: { id: true, name: true } },
+      },
     });
     if (!order) return apiError('Order tidak ditemukan', 404);
+
+    // Verify access: admin unrestricted
+    if (auth.user.role === 'CUSTOMER' && order.user_id !== auth.user.userId) {
+      return apiError('Tidak memiliki akses ke chat ini', 403);
+    }
+    if (auth.user.role === 'JOKI') {
+      const joki = await prisma.jokiMember.findUnique({ where: { user_id: auth.user.userId } });
+      if (!joki || order.joki_id !== joki.id) {
+        return apiError('Tidak memiliki akses ke chat ini', 403);
+      }
+    }
+    // ADMIN has unrestricted access — no additional check needed
 
     const chatMessage = await prisma.chatMessage.create({
       data: {
@@ -86,14 +117,26 @@ export async function POST(
       },
     });
 
-    // Notify relevant parties
-    const notifyUserId = auth.user.role === 'CUSTOMER' ? null : order.user_id;
-    if (notifyUserId) {
+    // Bidirectional notification
+    if (auth.user.role === 'CUSTOMER' || auth.user.role === 'ADMIN') {
+      // Customer/admin sends — notify joki
+      if (order.joki?.user_id) {
+        await prisma.notification.create({
+          data: {
+            user_id: order.joki.user_id,
+            title: 'Pesan Baru dari Customer',
+            message: `${order.user?.name || 'Customer'} mengirim pesan di order ${order.order_number}`,
+            type: 'ORDER_UPDATE',
+          },
+        });
+      }
+    } else {
+      // Joki sends — notify customer
       await prisma.notification.create({
         data: {
-          user_id: notifyUserId,
-          title: 'Pesan Baru',
-          message: `Pesan baru di order ${order.order_number}`,
+          user_id: order.user_id,
+          title: 'Pesan Baru dari Joki',
+          message: `${order.joki?.name || 'Joki'} mengirim pesan di order ${order.order_number}`,
           type: 'ORDER_UPDATE',
         },
       });
@@ -105,3 +148,4 @@ export async function POST(
     return apiError('Internal server error', 500);
   }
 }
+

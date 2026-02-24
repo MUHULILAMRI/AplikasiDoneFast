@@ -79,7 +79,7 @@ export function calculateDeadlineUrgency(deadline: string): 'normal' | 'soon' | 
   const now = new Date();
   const deadlineDate = new Date(deadline);
   const diffHours = (deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-  
+
   if (diffHours < 24) return 'urgent';
   if (diffHours < 72) return 'soon';
   return 'normal';
@@ -95,47 +95,46 @@ export function generateOrderId(): string {
 export function estimatePrice(params: {
   pages: number;
   deadline_days: number;
-  difficulty: string;
   category: string;
+  settings?: Record<string, string>; // from /api/settings
 }): {
   base_price: number;
-  difficulty_multiplier: number;
   deadline_multiplier: number;
   pages_cost: number;
+  tax_amount: number;
   total: number;
 } {
-  const basePrices: Record<string, number> = {
-    akademik: 50000,
-    arsitektur: 150000,
-    coding: 200000,
-    konsultasi: 100000,
-    ai_teknologi: 250000,
-  };
+  const s = params.settings;
 
-  const difficultyMultipliers: Record<string, number> = {
-    easy: 1.0,
-    medium: 1.5,
-    hard: 2.0,
-    expert: 3.0,
+  const basePrices: Record<string, number> = {
+    akademik: s ? Number(s.price_akademik) : 50000,
+    arsitektur: s ? Number(s.price_arsitektur) : 150000,
+    coding: s ? Number(s.price_coding) : 200000,
+    konsultasi: s ? Number(s.price_konsultasi) : 100000,
+    ai_teknologi: s ? Number(s.price_ai_teknologi) : 250000,
   };
 
   const base = basePrices[params.category] || 100000;
-  const diffMult = difficultyMultipliers[params.difficulty] || 1.0;
-  
+  const perPage = s ? Number(s.price_per_page) : 15000;
+  const taxPercent = s ? Number(s.tax_percent) : 0;
+  const mult1d = s ? Number(s.deadline_1day_multiplier) : 2.5;
+  const mult3d = s ? Number(s.deadline_3day_multiplier) : 1.8;
+
   // Deadline urgency multiplier
   let deadlineMult = 1.0;
-  if (params.deadline_days <= 1) deadlineMult = 2.5;
-  else if (params.deadline_days <= 3) deadlineMult = 1.8;
-  else if (params.deadline_days <= 7) deadlineMult = 1.3;
-  
-  const pagesCost = params.pages * 15000;
-  const total = Math.round((base * diffMult * deadlineMult + pagesCost) / 1000) * 1000;
+  if (params.deadline_days <= 1) deadlineMult = mult1d;
+  else if (params.deadline_days <= 3) deadlineMult = mult3d;
+
+  const pagesCost = params.pages * perPage;
+  const subtotal = base * deadlineMult + pagesCost;
+  const taxAmount = Math.round(subtotal * (taxPercent / 100));
+  const total = Math.round((subtotal + taxAmount) / 1000) * 1000;
 
   return {
     base_price: base,
-    difficulty_multiplier: diffMult,
     deadline_multiplier: deadlineMult,
     pages_cost: pagesCost,
+    tax_amount: taxAmount,
     total,
   };
 }

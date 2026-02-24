@@ -1,15 +1,84 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Bell, Shield, Palette, Globe, CreditCard,
   Mail, Smartphone, Database, Key, Save, Upload,
-  ChevronRight, ToggleLeft, ToggleRight, Lock, User
+  ToggleLeft, ToggleRight, Lock, User, CheckCircle, Loader2
 } from 'lucide-react';
+import { apiGetMe, apiUpdateProfile, apiGetSettings, apiUpdateSettings } from '@/lib/api';
+import { useAppStore } from '@/store/useAppStore';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
+  const { user, fetchUser } = useAppStore();
+
+  // Pricing settings state
+  const [pricing, setPricing] = useState<Record<string, string>>({
+    price_akademik: '50000',
+    price_arsitektur: '150000',
+    price_coding: '200000',
+    price_konsultasi: '100000',
+    price_ai_teknologi: '250000',
+    price_per_page: '15000',
+    tax_percent: '0',
+    deadline_1day_multiplier: '2.5',
+    deadline_3day_multiplier: '1.8',
+  });
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingSaving, setPricingSaving] = useState(false);
+  const [pricingSaved, setPricingSaved] = useState(false);
+
+  // Load pricing from API
+  useEffect(() => {
+    async function loadPricing() {
+      const res = await apiGetSettings();
+      if (res.success) {
+        setPricing(prev => ({ ...prev, ...(res.data as Record<string, string>) }));
+      }
+    }
+    loadPricing();
+  }, []);
+
+  const handleSavePricing = async () => {
+    setPricingSaving(true);
+    const res = await apiUpdateSettings(pricing);
+    setPricingSaving(false);
+    if (res.success) {
+      setPricingSaved(true);
+      setTimeout(() => setPricingSaved(false), 3000);
+    } else {
+      alert('Gagal menyimpan pengaturan harga');
+    }
+  };
+
+  // ── General settings state ──
+  const [appName, setAppName] = useState('DoneFast');
+  const [tagline, setTagline] = useState('Tugas Selesai, Lebih Cepat dari yang Kamu Bayangkan');
+  const [emailSupport, setEmailSupport] = useState('support@donefast.id');
+  const [whatsapp, setWhatsapp] = useState('+6281234567890');
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  // ── Profile state ──
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  // ── Security state ──
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [secSaving, setSecSaving] = useState(false);
+  const [secSuccess, setSecSuccess] = useState(false);
+  const [secError, setSecError] = useState('');
+
+  // ── Notification toggles ──
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -18,13 +87,128 @@ export default function SettingsPage() {
     marketing: false,
   });
 
+  // ── Load user profile ──
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || '');
+      setProfilePhone(user.phone || '');
+      setProfileAvatar(user.avatar || '');
+    }
+  }, [user]);
+
+  // ── Save general settings (stored locally for now) ──
+  const handleSaveGeneral = useCallback(async () => {
+    setSaving(true);
+    setSaveSuccess(false);
+    setSaveError('');
+    try {
+      // Save app settings to localStorage (no backend table for app settings yet)
+      localStorage.setItem('app_settings', JSON.stringify({
+        appName, tagline, emailSupport, whatsapp,
+      }));
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch {
+      setSaveError('Gagal menyimpan pengaturan');
+    } finally {
+      setSaving(false);
+    }
+  }, [appName, tagline, emailSupport, whatsapp]);
+
+  // ── Save profile via API ──
+  const handleSaveProfile = useCallback(async () => {
+    setProfileSaving(true);
+    setProfileSuccess(false);
+    setProfileError('');
+    try {
+      const res = await apiUpdateProfile({
+        name: profileName,
+        phone: profilePhone,
+        avatar: profileAvatar,
+      });
+      if (res.success) {
+        setProfileSuccess(true);
+        // Refresh global user state
+        fetchUser();
+        setTimeout(() => setProfileSuccess(false), 3000);
+      } else {
+        setProfileError(res.error || 'Gagal menyimpan profil');
+      }
+    } catch {
+      setProfileError('Terjadi kesalahan');
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [profileName, profilePhone, profileAvatar, fetchUser]);
+
+  // ── Change password ──
+  const handleChangePassword = useCallback(async () => {
+    if (!oldPassword || !newPassword) {
+      setSecError('Password lama dan baru wajib diisi');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSecError('Konfirmasi password tidak cocok');
+      return;
+    }
+    if (newPassword.length < 4) {
+      setSecError('Password minimal 4 karakter');
+      return;
+    }
+    setSecSaving(true);
+    setSecSuccess(false);
+    setSecError('');
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success !== false) {
+        setSecSuccess(true);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => setSecSuccess(false), 3000);
+      } else {
+        setSecError(data.error || 'Gagal mengubah password');
+      }
+    } catch {
+      setSecError('Terjadi kesalahan');
+    } finally {
+      setSecSaving(false);
+    }
+  }, [oldPassword, newPassword, confirmPassword]);
+
+  // ── Load saved settings from localStorage ──
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('app_settings');
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.appName) setAppName(s.appName);
+        if (s.tagline) setTagline(s.tagline);
+        if (s.emailSupport) setEmailSupport(s.emailSupport);
+        if (s.whatsapp) setWhatsapp(s.whatsapp);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const tabs = [
     { id: 'general', label: 'Umum', icon: Settings },
+    { id: 'profile', label: 'Profil', icon: User },
     { id: 'notifications', label: 'Notifikasi', icon: Bell },
     { id: 'security', label: 'Keamanan', icon: Shield },
     { id: 'payment', label: 'Pembayaran', icon: CreditCard },
     { id: 'appearance', label: 'Tampilan', icon: Palette },
   ];
+
+  // Emoji picker list for avatar
+  const avatarOptions = ['👨‍💼', '👩‍💼', '👨‍💻', '👩‍💻', '🧑‍🎓', '👩‍🎓', '🧑‍🎨', '🧑‍💼', '👨‍🔬', '👩‍🔬', '🦊', '🐯', '🎯', '⚡', '🚀'];
 
   return (
     <div className="space-y-6">
@@ -41,11 +225,10 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-primary/20 to-primary-light/10 text-primary-light border border-primary/20'
-                    : 'text-muted hover:text-foreground hover:bg-surface-2'
-                }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all whitespace-nowrap ${activeTab === tab.id
+                  ? 'bg-gradient-to-r from-primary/20 to-primary-light/10 text-primary-light border border-primary/20'
+                  : 'text-muted hover:text-foreground hover:bg-surface-2'
+                  }`}
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
@@ -56,45 +239,29 @@ export default function SettingsPage() {
 
         {/* Settings Content */}
         <div className="flex-1">
+          {/* ── General Tab ── */}
           {activeTab === 'general' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass rounded-2xl p-6 space-y-6"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-6 space-y-6">
               <h3 className="font-semibold flex items-center gap-2">
                 <Globe className="w-5 h-5 text-primary-light" />
                 Pengaturan Umum
               </h3>
-
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Nama Aplikasi</label>
-                  <input type="text" defaultValue="DoneFast" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input type="text" value={appName} onChange={(e) => setAppName(e.target.value)} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Tagline</label>
-                  <input type="text" defaultValue="Tugas Selesai, Lebih Cepat dari yang Kamu Bayangkan" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Email Support</label>
-                  <input type="email" defaultValue="support@donefast.id" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input type="email" value={emailSupport} onChange={(e) => setEmailSupport(e.target.value)} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">WhatsApp</label>
-                  <input type="text" defaultValue="+6281234567890" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Logo</label>
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-xl">
-                      DF
-                    </div>
-                    <button className="flex items-center gap-2 px-4 py-2.5 bg-surface-2 border border-border rounded-xl text-sm hover:border-primary/30 transition-colors">
-                      <Upload className="w-4 h-4" />
-                      Upload Logo
-                    </button>
-                  </div>
+                  <input type="text" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
                 </div>
 
                 <div className="pt-4">
@@ -125,19 +292,77 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium hover:opacity-90">
-                <Save className="w-4 h-4" />
-                Simpan Perubahan
+              {saveError && <p className="text-sm text-red-400">{saveError}</p>}
+              {saveSuccess && <p className="text-sm text-green-400 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Pengaturan berhasil disimpan!</p>}
+              <button onClick={handleSaveGeneral} disabled={saving} className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </motion.div>
           )}
 
+          {/* ── Profile Tab ── */}
+          {activeTab === 'profile' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-6 space-y-6">
+              <h3 className="font-semibold flex items-center gap-2">
+                <User className="w-5 h-5 text-primary-light" />
+                Profil Saya
+              </h3>
+              <div className="space-y-4">
+                {/* Avatar / Logo */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Avatar / Logo</label>
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-3xl">
+                      {profileAvatar || '👤'}
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted">Pilih emoji avatar:</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {avatarOptions.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => setProfileAvatar(emoji)}
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-all ${profileAvatar === emoji
+                          ? 'bg-primary/20 border-2 border-primary scale-110'
+                          : 'bg-surface-2 border border-border hover:border-primary/30'
+                          }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Nama</label>
+                  <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <input type="email" value={user?.email || ''} disabled className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-muted cursor-not-allowed" />
+                  <p className="text-xs text-muted mt-1">Email tidak dapat diubah</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">No. Telepon</label>
+                  <input type="text" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} placeholder="+628xxxxxxxxxx" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                </div>
+              </div>
+
+              {profileError && <p className="text-sm text-red-400">{profileError}</p>}
+              {profileSuccess && <p className="text-sm text-green-400 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Profil berhasil diperbarui!</p>}
+              <button onClick={handleSaveProfile} disabled={profileSaving} className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
+                {profileSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {profileSaving ? 'Menyimpan...' : 'Simpan Profil'}
+              </button>
+            </motion.div>
+          )}
+
+          {/* ── Notifications Tab ── */}
           {activeTab === 'notifications' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass rounded-2xl p-6 space-y-6"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-6 space-y-6">
               <h3 className="font-semibold flex items-center gap-2">
                 <Bell className="w-5 h-5 text-primary-light" />
                 Pengaturan Notifikasi
@@ -172,12 +397,9 @@ export default function SettingsPage() {
             </motion.div>
           )}
 
+          {/* ── Security Tab ── */}
           {activeTab === 'security' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass rounded-2xl p-6 space-y-6"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-6 space-y-6">
               <h3 className="font-semibold flex items-center gap-2">
                 <Shield className="w-5 h-5 text-primary-light" />
                 Keamanan
@@ -185,15 +407,15 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Password Lama</label>
-                  <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Password Baru</label>
-                  <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Konfirmasi Password</label>
-                  <input type="password" placeholder="••••••••" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
                 </div>
                 <div className="pt-4 space-y-3">
                   <div className="flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-border">
@@ -218,62 +440,149 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-              <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium hover:opacity-90">
-                <Save className="w-4 h-4" />
-                Update Password
+              {secError && <p className="text-sm text-red-400">{secError}</p>}
+              {secSuccess && <p className="text-sm text-green-400 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Password berhasil diubah!</p>}
+              <button onClick={handleChangePassword} disabled={secSaving} className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
+                {secSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {secSaving ? 'Mengubah...' : 'Update Password'}
               </button>
             </motion.div>
           )}
 
+          {/* ── Payment Tab ── */}
           {activeTab === 'payment' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass rounded-2xl p-6 space-y-6"
-            >
-              <h3 className="font-semibold flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-primary-light" />
-                Pengaturan Pembayaran
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Midtrans Server Key</label>
-                  <input type="password" defaultValue="SB-Mid-server-xxxxx" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground font-mono text-sm focus:outline-none focus:border-primary/50" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Midtrans Client Key</label>
-                  <input type="password" defaultValue="SB-Mid-client-xxxxx" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground font-mono text-sm focus:outline-none focus:border-primary/50" />
-                </div>
-                <div className="pt-2 space-y-3">
-                  <h4 className="font-medium text-sm">Metode Pembayaran Aktif</h4>
-                  {['QRIS', 'DANA', 'OVO', 'Bank Transfer (BCA, BNI, BRI, Mandiri)', 'GoPay', 'ShopeePay'].map((method, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-surface-2 rounded-xl border border-border">
-                      <span className="text-sm">{method}</span>
-                      <button className={i < 4 ? 'text-green-400' : 'text-muted'}>
-                        {i < 4 ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
-                      </button>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+
+              {/* Harga Dasar per Kategori */}
+              <div className="glass rounded-2xl p-6 space-y-5">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-primary-light" />
+                  Harga Dasar per Kategori
+                </h3>
+                <p className="text-sm text-muted">Atur harga base untuk setiap kategori layanan (dalam Rupiah).</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { key: 'price_akademik', label: '📚 Akademik' },
+                    { key: 'price_arsitektur', label: '🏗️ Arsitektur & Desain' },
+                    { key: 'price_coding', label: '💻 Coding & Web' },
+                    { key: 'price_konsultasi', label: '💬 Konsultasi' },
+                    { key: 'price_ai_teknologi', label: '🤖 AI & Teknologi' },
+                  ].map((item) => (
+                    <div key={item.key}>
+                      <label className="block text-sm font-medium mb-2">{item.label}</label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted">Rp</span>
+                        <input
+                          type="number"
+                          value={pricing[item.key]}
+                          onChange={(e) => setPricing(prev => ({ ...prev, [item.key]: e.target.value }))}
+                          className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Komisi Joki Default (%)</label>
-                  <input type="number" defaultValue="70" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
-                  <p className="text-xs text-muted mt-1">Persentase dari harga order yang diterima joki</p>
+              </div>
+
+              {/* Biaya Halaman & Pajak */}
+              <div className="glass rounded-2xl p-6 space-y-5">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Database className="w-5 h-5 text-accent" />
+                  Biaya Tambahan & Pajak
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Biaya per Halaman</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted">Rp</span>
+                      <input
+                        type="number"
+                        value={pricing.price_per_page}
+                        onChange={(e) => setPricing(prev => ({ ...prev, price_per_page: e.target.value }))}
+                        className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                      />
+                    </div>
+                    <p className="text-xs text-muted mt-1">Biaya tambahan per halaman tugas</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Pajak / Admin Fee (%)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value={pricing.tax_percent}
+                        onChange={(e) => setPricing(prev => ({ ...prev, tax_percent: e.target.value }))}
+                        className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                      />
+                      <span className="text-sm text-muted">%</span>
+                    </div>
+                    <p className="text-xs text-muted mt-1">Pajak/biaya admin yang ditambahkan ke total harga</p>
+                  </div>
                 </div>
               </div>
-              <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium hover:opacity-90">
-                <Save className="w-4 h-4" />
-                Simpan Pengaturan
+
+              {/* Multiplier Deadline */}
+              <div className="glass rounded-2xl p-6 space-y-5">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Key className="w-5 h-5 text-orange-400" />
+                  Multiplier Deadline Express
+                </h3>
+                <p className="text-sm text-muted">Pengganda harga untuk deadline mendesak (contoh: 2.5 = +150% dari harga base).</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Deadline ≤ 1 Hari</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted">×</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        value={pricing.deadline_1day_multiplier}
+                        onChange={(e) => setPricing(prev => ({ ...prev, deadline_1day_multiplier: e.target.value }))}
+                        className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Deadline ≤ 3 Hari</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted">×</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        value={pricing.deadline_3day_multiplier}
+                        onChange={(e) => setPricing(prev => ({ ...prev, deadline_3day_multiplier: e.target.value }))}
+                        className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={handleSavePricing}
+                disabled={pricingSaving}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              >
+                {pricingSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : pricingSaved ? (
+                  <CheckCircle className="w-4 h-4" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {pricingSaved ? 'Tersimpan!' : 'Simpan Pengaturan Harga'}
               </button>
             </motion.div>
           )}
 
+          {/* ── Appearance Tab ── */}
           {activeTab === 'appearance' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass rounded-2xl p-6 space-y-6"
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-6 space-y-6">
               <h3 className="font-semibold flex items-center gap-2">
                 <Palette className="w-5 h-5 text-primary-light" />
                 Tampilan
@@ -289,9 +598,8 @@ export default function SettingsPage() {
                     ].map((theme) => (
                       <button
                         key={theme.name}
-                        className={`p-4 rounded-xl border ${
-                          theme.active ? 'border-primary bg-primary/5' : 'border-border bg-surface-2'
-                        } transition-colors`}
+                        className={`p-4 rounded-xl border ${theme.active ? 'border-primary bg-primary/5' : 'border-border bg-surface-2'
+                          } transition-colors`}
                       >
                         <div className={`w-full h-12 rounded-lg ${theme.bg} border border-border mb-2`} />
                         <p className="text-sm font-medium">{theme.name}</p>
@@ -321,9 +629,9 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Font Size</label>
-                  <select className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm focus:outline-none focus:border-primary/50">
+                  <select defaultValue="Medium" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm focus:outline-none focus:border-primary/50">
                     <option>Small</option>
-                    <option selected>Medium</option>
+                    <option>Medium</option>
                     <option>Large</option>
                   </select>
                 </div>

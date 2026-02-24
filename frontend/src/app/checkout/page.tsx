@@ -5,19 +5,24 @@ import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
-import { apiGetOrder, apiCreatePayment, apiVerifyPayment } from '@/lib/api';
+import { apiGetOrder, apiCreatePayment } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
-import { 
-  CreditCard, QrCode, Wallet, Building, CheckCircle2, 
-  Shield, Clock, ArrowLeft, Copy, Loader2 
+import {
+  QrCode, Wallet, Building, CheckCircle2,
+  Shield, Clock, ArrowLeft, Copy, Upload,
+  MessageCircle, Image as ImageIcon, X
 } from 'lucide-react';
 
+const PHONE_NUMBER = '082291220759';
+const WA_ADMIN = '6285998006060'; // for WhatsApp link
+
 const paymentMethods = [
-  { id: 'qris', label: 'QRIS', icon: QrCode, description: 'Scan QR untuk bayar', color: 'from-purple-500 to-pink-500' },
-  { id: 'dana', label: 'DANA', icon: Wallet, description: 'Bayar via DANA', color: 'from-blue-500 to-cyan-500' },
-  { id: 'ovo', label: 'OVO', icon: Wallet, description: 'Bayar via OVO', color: 'from-purple-600 to-purple-400' },
-  { id: 'bank_transfer', label: 'Bank Transfer', icon: Building, description: 'BCA, BNI, Mandiri, BRI', color: 'from-blue-600 to-blue-400' },
-  { id: 'ewallet', label: 'E-Wallet Lain', icon: CreditCard, description: 'GoPay, ShopeePay, dll', color: 'from-green-500 to-emerald-500' },
+  { id: 'dana', label: 'DANA', icon: Wallet, number: PHONE_NUMBER, color: 'from-blue-500 to-cyan-500' },
+  { id: 'ovo', label: 'OVO', icon: Wallet, number: PHONE_NUMBER, color: 'from-purple-600 to-purple-400' },
+  { id: 'gopay', label: 'GoPay', icon: Wallet, number: PHONE_NUMBER, color: 'from-green-500 to-emerald-500' },
+  { id: 'shopeepay', label: 'ShopeePay', icon: Wallet, number: PHONE_NUMBER, color: 'from-orange-500 to-red-500' },
+  { id: 'bank_bri', label: 'Bank BRI', icon: Building, number: PHONE_NUMBER, color: 'from-blue-600 to-blue-400' },
+  { id: 'seabank', label: 'SeaBank', icon: Building, number: PHONE_NUMBER, color: 'from-teal-500 to-cyan-500' },
 ];
 
 interface OrderData {
@@ -33,10 +38,13 @@ function CheckoutForm() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id');
   const [order, setOrder] = useState<OrderData | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState('qris');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isPaid, setIsPaid] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState('dana');
   const [loading, setLoading] = useState(true);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function loadOrder() {
@@ -60,27 +68,50 @@ function CheckoutForm() {
 
   const orderTotal = order ? order.price - order.discount : 0;
 
-  const handlePayment = async () => {
-    if (!order) return;
-    setIsProcessing(true);
-    const res = await apiCreatePayment({
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProofFile(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => setProofPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeFile = () => {
+    setProofFile(null);
+    setProofPreview(null);
+  };
+
+  const handleSubmitProof = async () => {
+    if (!order || !proofFile) return;
+    setIsSubmitting(true);
+
+    // Create payment record with method
+    await apiCreatePayment({
       order_id: order.id,
       payment_method: selectedMethod.toUpperCase(),
     });
-    if (res.success) {
-      setTimeout(async () => {
-        const txn = res.data as Record<string, unknown>;
-        if (txn.id) {
-          await apiVerifyPayment(txn.id as string);
-        }
-        setIsProcessing(false);
-        setIsPaid(true);
-      }, 2000);
-    } else {
-      setIsProcessing(false);
-      alert('Gagal memproses pembayaran');
-    }
+
+    // In a real app, you'd upload the file here.
+    // For now, we just mark the order as "waiting for admin confirmation"
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+    }, 1500);
   };
+
+  const waLink = order
+    ? `https://wa.me/${WA_ADMIN}?text=${encodeURIComponent(
+      `Halo Admin DoneFast, saya sudah melakukan pembayaran untuk:\n\nOrder: ${order.order_number}\nLayanan: ${order.service?.name || order.title}\nTotal: ${formatCurrency(orderTotal)}\nMetode: ${paymentMethods.find(m => m.id === selectedMethod)?.label || selectedMethod}\n\nMohon dikonfirmasi. Terima kasih! 🙏`
+    )}`
+    : '#';
 
   if (loading) {
     return (
@@ -109,7 +140,8 @@ function CheckoutForm() {
     );
   }
 
-  if (isPaid) {
+  // ── Success: Waiting for admin confirmation ──
+  if (isSubmitted) {
     return (
       <main>
         <Navbar />
@@ -119,20 +151,36 @@ function CheckoutForm() {
             animate={{ scale: 1, opacity: 1 }}
             className="max-w-md mx-auto text-center px-4"
           >
-            <div className="w-24 h-24 rounded-full bg-accent-green/20 flex items-center justify-center mx-auto mb-6">
-              <CheckCircle2 className="w-12 h-12 text-accent-green" />
+            <div className="w-24 h-24 rounded-full bg-yellow-500/20 flex items-center justify-center mx-auto mb-6">
+              <Clock className="w-12 h-12 text-yellow-400" />
             </div>
-            <h1 className="text-2xl font-bold mb-3">Pembayaran Berhasil! 🎉</h1>
+            <h1 className="text-2xl font-bold mb-3">Bukti Pembayaran Terkirim! ⏳</h1>
             <p className="text-muted mb-2">Order ID: <span className="text-foreground font-mono">{order.order_number}</span></p>
-            <p className="text-muted mb-8">
-              Tim kami akan segera mengerjakan order kamu. Kamu bisa tracking progress di dashboard.
+            <p className="text-muted mb-6">
+              Bukti pembayaran kamu sedang diperiksa oleh admin. Konfirmasi biasanya membutuhkan waktu <span className="text-foreground font-medium">5–30 menit</span>.
             </p>
+
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl mb-6">
+              <p className="text-sm text-muted">
+                💬 Ingin konfirmasi lebih cepat? Hubungi admin langsung via WhatsApp!
+              </p>
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Chat Admin via WhatsApp
+              </a>
+            </div>
+
             <div className="space-y-3">
               <Link
-                href={`/tracking?id=${order.id}`}
+                href="/dashboard/customer/orders"
                 className="block w-full px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
               >
-                Tracking Order
+                Lihat Order Saya
               </Link>
               <Link
                 href="/"
@@ -146,6 +194,8 @@ function CheckoutForm() {
       </main>
     );
   }
+
+  const selectedPayment = paymentMethods.find(m => m.id === selectedMethod);
 
   return (
     <main>
@@ -162,88 +212,160 @@ function CheckoutForm() {
           </h1>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* Payment Methods */}
-            <div className="lg:col-span-3">
-              <div className="glass rounded-2xl p-8">
-                <h2 className="text-xl font-semibold mb-6">Pilih Metode Pembayaran</h2>
+            {/* Left: Payment Flow */}
+            <div className="lg:col-span-3 space-y-6">
 
-                <div className="space-y-3">
+              {/* Step 1: Pilih Metode */}
+              <div className="glass rounded-2xl p-6">
+                <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full bg-gradient-to-r from-primary to-primary-light text-white text-xs flex items-center justify-center font-bold">1</span>
+                  Transfer ke Rekening
+                </h2>
+                <p className="text-sm text-muted mb-5 ml-9">Pilih metode lalu transfer sejumlah <span className="text-foreground font-bold">{formatCurrency(orderTotal)}</span></p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {paymentMethods.map((method) => (
                     <button
                       key={method.id}
                       onClick={() => setSelectedMethod(method.id)}
-                      className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                        selectedMethod === method.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-surface-2 hover:border-primary/30'
-                      }`}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${selectedMethod === method.id
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                        : 'border-border bg-surface-2 hover:border-primary/30'
+                        }`}
                     >
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${method.color} flex items-center justify-center`}>
-                        <method.icon className="w-6 h-6 text-white" />
+                      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${method.color} flex items-center justify-center`}>
+                        <method.icon className="w-5 h-5 text-white" />
                       </div>
-                      <div className="text-left">
-                        <p className="font-medium">{method.label}</p>
-                        <p className="text-xs text-muted">{method.description}</p>
-                      </div>
-                      <div className="ml-auto">
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                          selectedMethod === method.id ? 'border-primary' : 'border-border'
-                        }`}>
-                          {selectedMethod === method.id && (
-                            <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                          )}
-                        </div>
-                      </div>
+                      <span className="text-xs font-medium">{method.label}</span>
                     </button>
                   ))}
                 </div>
 
-                {selectedMethod === 'qris' && (
-                  <div className="mt-6 p-6 bg-white rounded-xl text-center">
-                    <div className="w-48 h-48 bg-gray-200 mx-auto mb-4 rounded-lg flex items-center justify-center">
-                      <QrCode className="w-24 h-24 text-gray-500" />
+                {/* Payment details */}
+                {selectedPayment && (
+                  <motion.div
+                    key={selectedMethod}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-5 p-4 bg-surface-2 rounded-xl border border-border"
+                  >
+                    <p className="text-xs text-muted mb-1">Transfer ke {selectedPayment.label}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="font-mono font-bold text-xl">{selectedPayment.number}</p>
+                      <button
+                        onClick={() => handleCopy(selectedPayment.number)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary-light rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors"
+                      >
+                        <Copy className="w-3 h-3" />
+                        {copied ? 'Tersalin!' : 'Salin'}
+                      </button>
                     </div>
-                    <p className="text-gray-700 text-sm font-medium">Scan QR Code untuk membayar</p>
-                    <p className="text-gray-500 text-xs mt-1">Berlaku 15 menit</p>
-                  </div>
-                )}
+                    <p className="text-xs text-muted mt-1">a.n. <span className="text-foreground">DoneFast</span></p>
 
-                {selectedMethod === 'bank_transfer' && (
-                  <div className="mt-6 space-y-3">
-                    <div className="p-4 bg-surface-2 rounded-xl border border-border">
-                      <p className="text-xs text-muted mb-1">Bank BCA</p>
-                      <div className="flex items-center justify-between">
-                        <p className="font-mono font-bold text-lg">8810 2345 6789</p>
-                        <button className="p-2 hover:bg-surface rounded-lg transition-colors">
-                          <Copy className="w-4 h-4 text-muted" />
+                    <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                      <p className="text-xs text-yellow-300">
+                        ⚠️ Transfer tepat <span className="font-bold text-yellow-200">{formatCurrency(orderTotal)}</span> agar pembayaran mudah diverifikasi.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Step 2: Upload Bukti */}
+              <div className="glass rounded-2xl p-6">
+                <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full bg-gradient-to-r from-primary to-primary-light text-white text-xs flex items-center justify-center font-bold">2</span>
+                  Upload Bukti Pembayaran
+                </h2>
+                <p className="text-sm text-muted mb-5 ml-9">Screenshot bukti transfer kamu</p>
+
+                {!proofFile ? (
+                  <label
+                    htmlFor="proof-upload"
+                    className="flex flex-col items-center gap-3 p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 transition-colors"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Upload className="w-7 h-7 text-primary-light" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-sm">Klik untuk upload bukti transfer</p>
+                      <p className="text-xs text-muted mt-1">JPG, PNG, atau PDF (maks 5MB)</p>
+                    </div>
+                    <input
+                      id="proof-upload"
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                ) : (
+                  <div className="relative">
+                    {proofPreview && (
+                      <div className="relative rounded-xl overflow-hidden border border-border">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={proofPreview} alt="Bukti pembayaran" className="w-full max-h-64 object-contain bg-surface-2" />
+                        <button
+                          onClick={removeFile}
+                          className="absolute top-2 right-2 w-8 h-8 bg-red-500/80 backdrop-blur-sm text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <p className="text-xs text-muted mt-1">a.n. PT DoneFast Indonesia</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-3 p-3 bg-surface-2 rounded-xl border border-border">
+                      <ImageIcon className="w-5 h-5 text-primary-light" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{proofFile.name}</p>
+                        <p className="text-xs text-muted">{(proofFile.size / 1024).toFixed(0)} KB</p>
+                      </div>
+                      <span className="text-xs text-green-400 font-medium">✓ Siap</span>
                     </div>
                   </div>
                 )}
 
+                {/* Submit Button */}
                 <button
-                  onClick={handlePayment}
-                  disabled={isProcessing}
-                  className="w-full mt-6 px-6 py-4 bg-gradient-to-r from-accent-green to-emerald-500 text-white rounded-xl font-bold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                  onClick={handleSubmitProof}
+                  disabled={!proofFile || isSubmitting}
+                  className="w-full mt-5 px-6 py-4 bg-gradient-to-r from-accent-green to-emerald-500 text-white rounded-xl font-bold text-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isProcessing ? (
+                  {isSubmitting ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Memproses Pembayaran...
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Mengirim Bukti...
                     </>
                   ) : (
                     <>
-                      <CreditCard className="w-5 h-5" />
-                      Bayar {formatCurrency(orderTotal)}
+                      <CheckCircle2 className="w-5 h-5" />
+                      Kirim Bukti Pembayaran
                     </>
                   )}
                 </button>
               </div>
+
+              {/* Alternative: Chat Admin */}
+              <div className="glass rounded-2xl p-6">
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-green-400" />
+                  Atau Konfirmasi via WhatsApp
+                </h2>
+                <p className="text-sm text-muted mb-4">
+                  Sudah transfer? Kamu juga bisa langsung kirim bukti dan konfirmasi ke admin via WhatsApp.
+                </p>
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  Chat Admin WhatsApp
+                </a>
+              </div>
             </div>
 
-            {/* Order Summary */}
+            {/* Right: Order Summary */}
             <div className="lg:col-span-2">
               <div className="glass rounded-2xl p-6 sticky top-28">
                 <h3 className="text-lg font-semibold mb-4">Ringkasan Order</h3>
@@ -273,14 +395,23 @@ function CheckoutForm() {
                   </div>
                 </div>
 
+                <div className="p-3 bg-surface-2 rounded-xl border border-border mb-4">
+                  <p className="text-xs text-muted mb-1">Order ID</p>
+                  <p className="font-mono text-sm font-medium">{order.order_number}</p>
+                </div>
+
                 <div className="space-y-2 text-xs text-muted">
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-accent-green" />
-                    Pembayaran aman & terenkripsi
+                    Garansi 100% uang kembali
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-accent" />
-                    Verifikasi otomatis instan
+                    Konfirmasi admin 5–30 menit
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-green-400" />
+                    Support 24/7 via WhatsApp
                   </div>
                 </div>
               </div>

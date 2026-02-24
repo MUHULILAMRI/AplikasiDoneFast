@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       return apiError('Order ID dan metode pembayaran wajib diisi');
     }
 
-    const validMethods = ['QRIS', 'DANA', 'OVO', 'BANK_TRANSFER', 'EWALLET'];
+    const validMethods = ['QRIS', 'DANA', 'OVO', 'GOPAY', 'SHOPEEPAY', 'BANK_TRANSFER', 'EWALLET'];
     if (!validMethods.includes(payment_method)) {
       return apiError('Metode pembayaran tidak valid');
     }
@@ -80,16 +80,20 @@ function generatePaymentInfo(method: string, amount: number) {
     case 'BANK_TRANSFER':
       return {
         type: 'bank_transfer',
-        bank: 'BCA',
-        account_number: '8277081234567890',
-        account_name: 'PT DoneFast Indonesia',
+        banks: [
+          { bank: 'BRI', account_number: '082291220759', account_name: 'DoneFast' },
+          { bank: 'SeaBank', account_number: '082291220759', account_name: 'DoneFast' },
+        ],
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       };
     case 'DANA':
     case 'OVO':
+    case 'GOPAY':
+    case 'SHOPEEPAY':
     case 'EWALLET':
       return {
         type: 'ewallet',
+        phone_number: '082291220759',
         redirect_url: `https://simulator.sandbox.midtrans.com/v2/pay`,
         deeplink: `${method.toLowerCase()}://pay?amount=${amount}`,
         expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
