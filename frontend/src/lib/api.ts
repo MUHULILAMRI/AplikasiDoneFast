@@ -181,6 +181,13 @@ export async function apiGetOrderTracking(id: string) {
   return request<unknown>(`/orders/${id}/tracking`);
 }
 
+export async function apiRateOrder(id: string, rating: number, review?: string) {
+  return request<unknown>(`/orders/${id}/rate`, {
+    method: 'POST',
+    body: JSON.stringify({ rating, review }),
+  });
+}
+
 // ============================================
 // Payment APIs
 // ============================================

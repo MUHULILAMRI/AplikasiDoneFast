@@ -51,7 +51,10 @@ export default function UploadPage() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Upload failed');
 
-        uploadedUrls.push(data.url);
+        // Access the url correctly from data.data.url
+        if (data.data?.url) {
+          uploadedUrls.push(data.data.url);
+        }
       }
 
       setFiles(prev => [...prev, ...uploadedUrls]);
@@ -193,7 +196,7 @@ export default function UploadPage() {
                   <FileText className="w-5 h-5 text-primary-light" />
                   <div>
                     <p className="text-sm font-medium truncate max-w-[200px]">
-                      {file.split('/').pop()?.split('-').slice(1).join('-') || file}
+                      {file && typeof file === 'string' ? (file.split('/').pop()?.split('-').slice(1).join('-') || file) : 'File'}
                     </p>
                     <p className="text-xs text-muted">Siap dikirim</p>
                   </div>

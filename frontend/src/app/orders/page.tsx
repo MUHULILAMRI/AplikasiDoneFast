@@ -197,6 +197,15 @@ export default function OrdersPage() {
                                         <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2">
                                             <p className="text-sm font-bold text-accent-green">{formatCurrency(order.price)}</p>
                                             <div className="flex gap-2">
+                                                {order.status === 'PENDING_PAYMENT' && (
+                                                    <Link
+                                                        href={`/checkout?order_id=${order.id}`}
+                                                        className="px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-primary-light text-white text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                                                    >
+                                                        <CreditCard className="w-3.5 h-3.5" />
+                                                        Bayar Sekarang
+                                                    </Link>
+                                                )}
                                                 {!['CANCELLED'].includes(order.status) && (
                                                     <Link
                                                         href={`/orders/${order.id}/chat`}

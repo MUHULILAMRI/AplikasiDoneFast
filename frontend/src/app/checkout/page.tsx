@@ -26,6 +26,13 @@ const paymentMethods = [
   { id: 'seabank', label: 'SeaBank', icon: Building, number: PHONE_NUMBER, color: 'from-teal-500 to-cyan-500' },
 ];
 
+interface Transaction {
+  id: string;
+  payment_status: string;
+  payment_method: string;
+  payment_url?: string;
+}
+
 interface OrderData {
   id: string;
   order_number: string;
@@ -34,6 +41,7 @@ interface OrderData {
   discount: number;
   status: string;
   service?: { name: string };
+  transactions?: Transaction[];
 }
 
 function CheckoutForm() {
@@ -53,7 +61,7 @@ function CheckoutForm() {
       if (!orderId) { setLoading(false); return; }
       const res = await apiGetOrder(orderId);
       if (res.success) {
-        const d = res.data as Record<string, unknown>;
+        const d = res.data as any;
         setOrder({
           id: d.id as string,
           order_number: d.order_number as string,
@@ -61,8 +69,17 @@ function CheckoutForm() {
           price: Number(d.price),
           discount: Number(d.discount ?? 0),
           status: d.status as string,
-          service: d.service as { name: string } | undefined,
+          service: d.service,
+          transactions: d.transactions,
         });
+
+        // Check if proof was already submitted (pending transaction exists)
+        if (d.transactions && d.transactions.length > 0) {
+          const hasPending = d.transactions.some((tx: any) => tx.payment_status === 'PENDING');
+          if (hasPending) {
+            setIsSubmitted(true);
+          }
+        }
       }
       setLoading(false);
     }
@@ -148,17 +165,45 @@ function CheckoutForm() {
     );
   }
 
-  if (!order) {
+  if (!order || order.status === 'CANCELLED') {
     return (
       <main>
         <Navbar />
         <div className="min-h-screen pt-24 pb-16 flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-3">Order tidak ditemukan</h1>
+            <h1 className="text-2xl font-bold mb-3">{order?.status === 'CANCELLED' ? 'Order Dibatalkan' : 'Order tidak ditemukan'}</h1>
             <Link href="/marketplace" className="text-primary-light hover:underline">
               Kembali ke Marketplace
             </Link>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ── NEW: Already Paid State ──
+  if (['PAID', 'IN_PROGRESS', 'REVISION', 'COMPLETED'].includes(order.status)) {
+    return (
+      <main>
+        <Navbar />
+        <div className="min-h-screen pt-24 pb-16 flex items-center justify-center">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md mx-auto text-center px-4">
+            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="w-10 h-10 text-green-500" />
+            </div>
+            <h1 className="text-2xl font-bold mb-3">Pesanan Sudah Dibayar! 🎉</h1>
+            <p className="text-muted mb-8">
+              Pembayaran untuk order <span className="text-foreground font-mono">{order.order_number}</span> telah kami terima dan diverifikasi.
+            </p>
+            <div className="space-y-3">
+              <Link href="/orders" className="block w-full px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white rounded-xl font-medium hover:opacity-90 transition-opacity">
+                Lihat Progress Pesanan
+              </Link>
+              <Link href="/" className="block w-full px-6 py-3 bg-surface-2 border border-border text-foreground rounded-xl hover:border-primary/30 transition-colors">
+                Kembali ke Home
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </main>
     );

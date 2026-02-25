@@ -5,10 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/store/useAppStore';
-import { apiGetMessages, apiSendMessage, apiGetOrder } from '@/lib/api';
+import { apiGetMessages, apiSendMessage, apiGetOrder, apiRateOrder } from '@/lib/api';
 import {
     ArrowLeft, Send, Paperclip, MoreVertical, MapPin,
-    User as UserIcon, Clock
+    User as UserIcon, Clock, Download, FileText, CheckCircle2, Star
 } from 'lucide-react';
 
 interface ChatMsg {
@@ -31,6 +31,9 @@ interface OrderInfo {
     order_number: string;
     title: string;
     status: string;
+    result_files?: string[];
+    customer_rating?: number;
+    customer_review?: string;
     joki?: { id: string; name: string };
     user?: { id: string; name: string };
 }
@@ -54,6 +57,11 @@ export default function OrderChatPage() {
     const [newMsg, setNewMsg] = useState('');
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [hoverRating, setHoverRating] = useState(0);
+    const [selectedRating, setSelectedRating] = useState(0);
+    const [reviewText, setReviewText] = useState('');
+    const [ratingSubmitting, setRatingSubmitting] = useState(false);
+    const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -78,9 +86,17 @@ export default function OrderChatPage() {
                 order_number: d.order_number as string,
                 title: d.title as string,
                 status: d.status as string,
+                result_files: d.result_files as string[] | undefined,
+                customer_rating: d.customer_rating as number | undefined,
+                customer_review: d.customer_review as string | undefined,
                 joki: d.joki as OrderInfo['joki'],
                 user: d.user as OrderInfo['user'],
             });
+            // Pre-fill rating if already given
+            if (d.customer_rating) {
+                setSelectedRating(d.customer_rating as number);
+                setRatingSubmitted(true);
+            }
         }
     }, [orderId]);
 
@@ -115,6 +131,18 @@ export default function OrderChatPage() {
             inputRef.current?.focus();
         }
         setSending(false);
+    };
+
+    const handleSubmitRating = async () => {
+        if (!selectedRating || !order || ratingSubmitting) return;
+        setRatingSubmitting(true);
+        const res = await apiRateOrder(order.id, selectedRating, reviewText || undefined);
+        setRatingSubmitting(false);
+        if (res.success) {
+            setRatingSubmitted(true);
+        } else {
+            alert((res as any).error || 'Gagal mengirim rating');
+        }
     };
 
     // Determine the "other party" name
@@ -179,6 +207,103 @@ export default function OrderChatPage() {
                 <div className="px-4 py-2 bg-surface-2/50 border-b border-border/50 flex items-center justify-center gap-2 text-xs text-muted">
                     <Clock className="w-3 h-3" />
                     Status: <span className="font-medium text-foreground">{order.status.replace(/_/g, ' ')}</span>
+                </div>
+            )}
+
+            {/* Result Files Panel — shown to customer when files exist */}
+            {order && (order.result_files?.length ?? 0) > 0 && user?.role === 'customer' && (
+                <div className="mx-4 my-3 p-4 rounded-2xl bg-green-500/5 border border-green-500/20">
+                    <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle2 className="w-4 h-4 text-green-400" />
+                        <h4 className="text-sm font-semibold text-green-300">Hasil Pekerjaan Tersedia</h4>
+                        <span className="ml-auto text-[10px] text-muted bg-surface-2 px-2 py-0.5 rounded-full">{order.result_files!.length} file</span>
+                    </div>
+                    <div className="space-y-2">
+                        {order.result_files!.map((fileUrl, i) => {
+                            const fileName = fileUrl.split('/').pop() || `File ${i + 1}`;
+                            const displayName = fileName.split('-').slice(1).join('-') || fileName;
+                            return (
+                                <a
+                                    key={i}
+                                    href={fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download
+                                    className="flex items-center gap-3 p-3 bg-surface-2 border border-border rounded-xl hover:border-green-500/30 transition-colors group"
+                                >
+                                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                                        <FileText className="w-4 h-4 text-green-400" />
+                                    </div>
+                                    <span className="flex-1 text-xs font-medium text-foreground truncate">{displayName}</span>
+                                    <Download className="w-4 h-4 text-muted group-hover:text-green-400 transition-colors flex-shrink-0" />
+                                </a>
+                            );
+                        })}
+                    </div>
+                    {order.status === 'COMPLETED' && (
+                        <p className="text-[10px] text-muted mt-3 text-center">Order ini telah selesai. Hubungi support jika ada pertanyaan.</p>
+                    )}
+                </div>
+            )}
+
+            {/* Rating Panel — shown to customer on COMPLETED orders */}
+            {order && order.status === 'COMPLETED' && user?.role === 'customer' && (
+                <div className="mx-4 my-3 p-4 rounded-2xl bg-yellow-500/5 border border-yellow-500/20">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Star className="w-4 h-4 text-yellow-400" />
+                        <h4 className="text-sm font-semibold text-yellow-300">
+                            {ratingSubmitted ? 'Rating Anda' : 'Beri Rating Pekerjaan'}
+                        </h4>
+                    </div>
+                    {/* Stars */}
+                    <div className="flex gap-1 mb-3">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                                key={star}
+                                disabled={ratingSubmitted}
+                                onClick={() => !ratingSubmitted && setSelectedRating(star)}
+                                onMouseEnter={() => !ratingSubmitted && setHoverRating(star)}
+                                onMouseLeave={() => setHoverRating(0)}
+                                className="transition-transform hover:scale-110 disabled:cursor-default"
+                            >
+                                <Star
+                                    className={`w-7 h-7 transition-colors ${star <= (hoverRating || selectedRating)
+                                            ? 'text-yellow-400 fill-yellow-400'
+                                            : 'text-muted'
+                                        }`}
+                                />
+                            </button>
+                        ))}
+                        {selectedRating > 0 && (
+                            <span className="ml-2 text-sm text-yellow-300 font-medium self-center">
+                                {['', 'Buruk', 'Cukup', 'Oke', 'Bagus', 'Sempurna!'][selectedRating]}
+                            </span>
+                        )}
+                    </div>
+                    {!ratingSubmitted && (
+                        <>
+                            <textarea
+                                value={reviewText}
+                                onChange={(e) => setReviewText(e.target.value)}
+                                placeholder="Tulis ulasan (opsional)..."
+                                rows={2}
+                                className="w-full px-3 py-2 bg-surface-2 border border-border rounded-xl text-xs placeholder:text-muted focus:outline-none focus:border-yellow-500/50 resize-none mb-3"
+                            />
+                            <button
+                                onClick={handleSubmitRating}
+                                disabled={!selectedRating || ratingSubmitting}
+                                className="w-full py-2.5 bg-gradient-to-r from-yellow-500 to-amber-400 text-white font-bold rounded-xl text-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
+                            >
+                                {ratingSubmitting ? 'Mengirim...' : '⭐ Kirim Rating'}
+                            </button>
+                        </>
+                    )}
+                    {ratingSubmitted && order.customer_review && (
+                        <p className="text-xs text-muted italic">"{order.customer_review}"</p>
+                    )}
+                    {ratingSubmitted && (
+                        <p className="text-[10px] text-muted mt-1">Terima kasih atas feedback Anda! 🙏</p>
+                    )}
                 </div>
             )}
 

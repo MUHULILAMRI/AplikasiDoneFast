@@ -75,6 +75,8 @@ model Order {
   progress       Int             @default(0)
   has_journal    Boolean?        @default(true)
   urgency_level  String          @default("STANDAR")
+  customer_rating  Int?
+  customer_review  String?
   messages       ChatMessage[]
   joki           JokiMember?     @relation(fields: [joki_id], references: [id])
   service        Service         @relation(fields: [service_id], references: [id])
