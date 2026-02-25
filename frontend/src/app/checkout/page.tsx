@@ -32,6 +32,7 @@ interface OrderData {
   title: string;
   price: number;
   discount: number;
+  status: string;
   service?: { name: string };
 }
 
@@ -59,6 +60,7 @@ function CheckoutForm() {
           title: d.title as string,
           price: Number(d.price),
           discount: Number(d.discount ?? 0),
+          status: d.status as string,
           service: d.service as { name: string } | undefined,
         });
       }
@@ -131,7 +133,7 @@ function CheckoutForm() {
 
   const waLink = order
     ? `https://wa.me/${WA_ADMIN}?text=${encodeURIComponent(
-      `Halo Admin DoneFast, saya sudah melakukan pembayaran untuk:\n\nOrder: ${order.order_number}\nLayanan: ${order.service?.name || order.title}\nTotal: ${formatCurrency(orderTotal)}\nMetode: ${paymentMethods.find(m => m.id === selectedMethod)?.label || selectedMethod}\n\nMohon dikonfirmasi. Terima kasih! 🙏`
+      `Halo Admin DoneFast, saya ingin menanyakan status order saya:\n\nOrder: ${order.order_number}\nLayanan: ${order.service?.name || order.title}\nStatus: ${order.status}`
     )}`
     : '#';
 
@@ -157,6 +159,57 @@ function CheckoutForm() {
               Kembali ke Marketplace
             </Link>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ── NEW: Waiting for Quote State ──
+  if (order.status === 'WAITING_FOR_QUOTE') {
+    return (
+      <main>
+        <Navbar />
+        <div className="min-h-screen pt-24 pb-16 flex items-center justify-center">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-xl mx-auto text-center px-4">
+            <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6">
+              <Clock className="w-10 h-10 text-primary-light animate-pulse" />
+            </div>
+            <h1 className="text-3xl font-bold mb-3">Tugas Anda Sedang Ditinjau Admin 🧐</h1>
+            <p className="text-muted mb-6">
+              Admin sedang meninjau detail tugas <span className="text-foreground font-medium">{order.title}</span> untuk menentukan harga final yang paling kompetitif bagi Anda.
+            </p>
+
+            <div className="glass p-6 rounded-2xl mb-8 text-left border-primary/20 bg-primary/5">
+              <h3 className="font-bold mb-3 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-accent-green" />
+                Langkah Selanjutnya:
+              </h3>
+              <ul className="space-y-3 text-sm text-muted">
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <span>Admin meninjau materi dan tingkat kesulitan tugas Anda.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <span>Anda akan menerima notifikasi / WhatsApp jika harga sudah ditentukan.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="w-5 h-5 rounded-full bg-primary text-white text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <span>Anda dapat kembali ke halaman ini untuk melakukan pembayaran.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1 px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2">
+                <MessageCircle className="w-5 h-5" />
+                Chat Admin Sekarang
+              </a>
+              <Link href="/dashboard/customer/orders" className="flex-1 px-6 py-3 bg-surface-2 border border-border text-foreground rounded-xl font-medium hover:border-primary/30 transition-all">
+                Cek Status Order
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </main>
     );

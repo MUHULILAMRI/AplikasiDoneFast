@@ -35,8 +35,12 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-white text-lg">
-                DF
+              <div className="relative w-10 h-10 overflow-hidden rounded-xl">
+                <img
+                  src="/logo.png"
+                  alt="DoneFast Logo"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <span className="text-xl font-bold gradient-text">
                 DoneFast

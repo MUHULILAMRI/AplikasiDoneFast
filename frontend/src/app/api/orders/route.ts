@@ -5,6 +5,22 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authenticateRequest, apiSuccess, apiError, apiPaginated } from '@/lib/auth';
+import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
+
+const limiter = rateLimit({ interval: 60 * 1000, uniqueTokenPerInterval: 5 });
+
+const orderSchema = z.object({
+  service_id: z.string().min(1, 'Service ID wajib diisi'),
+  title: z.string().min(5, 'Judul minimal 5 karakter'),
+  description: z.string().optional(),
+  requirements: z.string().optional(),
+  deadline: z.string().refine((val) => !isNaN(Date.parse(val)), 'Format tanggal tidak valid'),
+  files: z.array(z.string()).optional(),
+  has_journal: z.boolean().nullable().optional(),
+  urgency_level: z.string().optional(),
+  price: z.number().optional(),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +35,6 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
-    // Customers see own orders; Joki see assigned; Admin see all
     if (auth.user.role === 'CUSTOMER') {
       where.user_id = auth.user.userId;
     } else if (auth.user.role === 'JOKI') {
@@ -36,7 +51,7 @@ export async function GET(req: NextRequest) {
       prisma.order.findMany({
         where,
         include: {
-          service: { select: { name: true, category: true } },
+          service: { select: { name: true, category: true, base_price: true } },
           user: { select: { id: true, name: true, email: true, avatar: true } },
           joki: { select: { id: true, name: true, rating: true } },
         },
@@ -59,52 +74,26 @@ export async function POST(req: NextRequest) {
     const auth = await authenticateRequest(req);
     if ('error' in auth) return auth.error;
 
-    const body = await req.json();
-    const { service_id, title, description, requirements, deadline, pages, voucher_code } = body;
-
-    if (!service_id || !title || !deadline) {
-      return apiError('Service, title, dan deadline wajib diisi');
+    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+    const limitResult = await limiter.check(ip);
+    if (limitResult.isRateLimited) {
+      return apiError('Terlalu banyak permintaan. Silakan coba lagi nanti.', 429);
     }
+
+    const json = await req.json();
+    const validation = orderSchema.safeParse(json);
+
+    if (!validation.success) {
+      return apiError(validation.error.issues[0].message);
+    }
+
+    const {
+      service_id, title, description, requirements,
+      deadline, files, has_journal, urgency_level, price
+    } = validation.data;
 
     const service = await prisma.service.findUnique({ where: { id: service_id } });
     if (!service) return apiError('Layanan tidak ditemukan', 404);
-
-    // Load pricing settings from DB
-    const settingsRows = await prisma.siteSettings.findMany();
-    const cfg: Record<string, string> = {};
-    for (const r of settingsRows) cfg[r.key] = r.value;
-
-    const perPage = Number(cfg.price_per_page || '15000');
-    const taxPercent = Number(cfg.tax_percent || '0');
-    const mult1d = Number(cfg.deadline_1day_multiplier || '1.5');
-    const mult3d = Number(cfg.deadline_3day_multiplier || '1.3');
-
-    // Calculate price (without difficulty — joki determines extra charges)
-    let price = Number(service.base_price);
-    if (pages) price += pages * perPage;
-
-    // Deadline urgency (only for 3 days or less)
-    const deadlineDate = new Date(deadline);
-    const daysUntil = Math.ceil((deadlineDate.getTime() - Date.now()) / 86400000);
-    if (daysUntil <= 1) price *= mult1d;
-    else if (daysUntil <= 3) price *= mult3d;
-
-    // Tax / admin fee
-    if (taxPercent > 0) {
-      price += price * (taxPercent / 100);
-    }
-
-    // Voucher
-    let discount = 0;
-    let voucherId: string | undefined;
-    if (voucher_code) {
-      const voucher = await prisma.voucher.findUnique({ where: { code: voucher_code } });
-      if (voucher && voucher.is_active && voucher.usage_count < voucher.max_usage && new Date(voucher.valid_until) > new Date()) {
-        discount = Math.min(price * (voucher.discount_percent / 100), Number(voucher.max_discount));
-        voucherId = voucher.id;
-        await prisma.voucher.update({ where: { id: voucher.id }, data: { usage_count: { increment: 1 } } });
-      }
-    }
 
     const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
 
@@ -116,26 +105,24 @@ export async function POST(req: NextRequest) {
         title,
         description: description || '',
         requirements: requirements || '',
-        deadline: deadlineDate,
-        price: Math.round(price - discount),
-        difficulty: 'MEDIUM',
-        pages,
-        discount,
-        voucher_id: voucherId,
-        files: [],
+        deadline: new Date(deadline),
+        price: price || service.base_price, // Initial base price estimate
+        status: 'WAITING_FOR_QUOTE' as any,
+        has_journal: has_journal,
+        urgency_level: urgency_level || 'STANDAR',
+        files: files || [],
         result_files: [],
-      },
+      } as any,
       include: {
         service: { select: { name: true, category: true } },
       },
     });
 
-    // Create notification
     await prisma.notification.create({
       data: {
         user_id: auth.user.userId,
-        title: 'Order Dibuat',
-        message: `Order ${orderNumber} berhasil dibuat. Silakan lanjutkan pembayaran.`,
+        title: 'Pesanan Diterima',
+        message: `Pesanan ${orderNumber} telah diajukan. Admin akan segera memberikan harga final.`,
         type: 'ORDER_UPDATE',
       },
     });

@@ -17,36 +17,30 @@ export async function GET(req: NextRequest) {
     // Parallel queries for dashboard stats
     const [
       totalOrders,
-      monthlyOrders,
       lastMonthOrders,
       totalCustomers,
-      monthlyCustomers,
-      totalRevenue,
-      monthlyRevenue,
-      pendingOrders,
-      inProgressOrders,
-      completedOrders,
-      revisionOrders,
-      cancelledOrders,
+      totalTransactions,
+      monthlyTransactions,
+      orderSummary,
       totalJoki,
       recentOrders,
       topJoki,
     ] = await Promise.all([
       prisma.order.count(),
-      prisma.order.count({ where: { created_at: { gte: startOfMonth } } }),
       prisma.order.count({ where: { created_at: { gte: startOfLastMonth, lt: startOfMonth } } }),
       prisma.user.count({ where: { role: 'CUSTOMER' } }),
-      prisma.user.count({ where: { role: 'CUSTOMER', created_at: { gte: startOfMonth } } }),
-      prisma.transaction.aggregate({ where: { payment_status: 'PAID' }, _sum: { amount: true } }),
-      prisma.transaction.aggregate({
-        where: { payment_status: 'PAID', paid_at: { gte: startOfMonth } },
-        _sum: { amount: true },
+      prisma.transaction.findMany({
+        where: { payment_status: 'PAID' },
+        include: { order: { include: { joki: { select: { commission_rate: true } } } } }
       }),
-      prisma.order.count({ where: { status: { in: ['PENDING_PAYMENT', 'PAID'] } } }),
-      prisma.order.count({ where: { status: 'IN_PROGRESS' } }),
-      prisma.order.count({ where: { status: 'COMPLETED' } }),
-      prisma.order.count({ where: { status: 'REVISION' } }),
-      prisma.order.count({ where: { status: 'CANCELLED' } }),
+      prisma.transaction.findMany({
+        where: { payment_status: 'PAID', paid_at: { gte: startOfMonth } },
+        include: { order: { include: { joki: { select: { commission_rate: true } } } } }
+      }),
+      prisma.order.groupBy({
+        by: ['status'],
+        _count: true,
+      }),
       prisma.jokiMember.count(),
       prisma.order.findMany({
         take: 10,
@@ -60,32 +54,48 @@ export async function GET(req: NextRequest) {
       prisma.jokiMember.findMany({
         take: 5,
         orderBy: { rating: 'desc' },
-        include: { user: { select: { name: true, avatar: true } } },
+        include: {
+          user: { select: { name: true, avatar: true, phone: true } },
+          _count: { select: { orders: { where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } } } }
+        },
       }),
     ]);
 
-    // Monthly growth calculations
-    const orderGrowth = lastMonthOrders > 0
-      ? ((monthlyOrders - lastMonthOrders) / lastMonthOrders * 100).toFixed(1)
-      : '0';
+    const calculateStats = (txs: any[]) => {
+      let revenue = 0;
+      let commission = 0;
+      txs.forEach(tx => {
+        const amount = Number(tx.amount || 0);
+        revenue += amount;
+        const rate = tx.order?.joki?.commission_rate ?? 50;
+        commission += (amount * rate) / 100;
+      });
+      return { revenue, profit: revenue - commission };
+    };
+
+    const totalStats = calculateStats(totalTransactions);
+    const monthlyStats = calculateStats(monthlyTransactions);
+
+    // Filter statuses
+    const findStatusCount = (s: string) => orderSummary.find(os => os.status === s)?._count ?? 0;
 
     return apiSuccess({
       overview: {
         total_orders: totalOrders,
-        monthly_orders: monthlyOrders,
-        order_growth: `${Number(orderGrowth) >= 0 ? '+' : ''}${orderGrowth}%`,
+        monthly_orders: monthlyTransactions.length,
         total_customers: totalCustomers,
-        new_customers: monthlyCustomers,
-        total_revenue: Number(totalRevenue._sum.amount || 0),
-        monthly_revenue: Number(monthlyRevenue._sum.amount || 0),
+        total_revenue: totalStats.revenue,
+        monthly_revenue: monthlyStats.revenue,
+        total_profit: totalStats.profit,
+        monthly_profit: monthlyStats.profit,
         total_joki: totalJoki,
       },
       order_summary: {
-        pending: pendingOrders,
-        in_progress: inProgressOrders,
-        completed: completedOrders,
-        revision: revisionOrders,
-        cancelled: cancelledOrders,
+        pending: findStatusCount('PENDING_PAYMENT') + findStatusCount('PAID'),
+        in_progress: findStatusCount('IN_PROGRESS'),
+        completed: findStatusCount('COMPLETED'),
+        revision: findStatusCount('REVISION'),
+        cancelled: findStatusCount('CANCELLED'),
       },
       recent_orders: recentOrders,
       top_joki: topJoki,

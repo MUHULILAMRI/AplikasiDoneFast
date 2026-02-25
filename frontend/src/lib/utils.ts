@@ -93,14 +93,17 @@ export function generateOrderId(): string {
 
 // AI Price Estimation
 export function estimatePrice(params: {
-  pages: number;
-  deadline_days: number;
+  pages?: number;
+  deadline_days?: number;
+  urgency_level?: 'STANDAR' | 'KILAT' | 'SUPER_KILAT';
+  has_journal?: boolean;
   category: string;
+  service_name?: string;
   settings?: Record<string, string>; // from /api/settings
 }): {
   base_price: number;
-  deadline_multiplier: number;
-  pages_cost: number;
+  urgency_multiplier: number;
+  journal_surcharge: number;
   tax_amount: number;
   total: number;
 } {
@@ -115,25 +118,28 @@ export function estimatePrice(params: {
   };
 
   const base = basePrices[params.category] || 100000;
-  const perPage = s ? Number(s.price_per_page) : 15000;
   const taxPercent = s ? Number(s.tax_percent) : 0;
-  const mult1d = s ? Number(s.deadline_1day_multiplier) : 2.5;
-  const mult3d = s ? Number(s.deadline_3day_multiplier) : 1.8;
 
-  // Deadline urgency multiplier
-  let deadlineMult = 1.0;
-  if (params.deadline_days <= 1) deadlineMult = mult1d;
-  else if (params.deadline_days <= 3) deadlineMult = mult3d;
+  // Urgency multiplier
+  let urgencyMult = 1.0;
+  if (params.urgency_level === 'KILAT') urgencyMult = 1.4;
+  else if (params.urgency_level === 'SUPER_KILAT') urgencyMult = 2.0;
 
-  const pagesCost = params.pages * perPage;
-  const subtotal = base * deadlineMult + pagesCost;
+  // Journal surcharge (specific to Skripsi)
+  let journalSurcharge = 0;
+  const isSkripsi = params.service_name?.toLowerCase().includes('skripsi');
+  if (isSkripsi && params.has_journal === false) {
+    journalSurcharge = 150000;
+  }
+
+  const subtotal = (base * urgencyMult) + journalSurcharge;
   const taxAmount = Math.round(subtotal * (taxPercent / 100));
   const total = Math.round((subtotal + taxAmount) / 1000) * 1000;
 
   return {
     base_price: base,
-    deadline_multiplier: deadlineMult,
-    pages_cost: pagesCost,
+    urgency_multiplier: urgencyMult,
+    journal_surcharge: journalSurcharge,
     tax_amount: taxAmount,
     total,
   };

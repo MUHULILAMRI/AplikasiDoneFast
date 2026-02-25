@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useAppStore } from '@/store/useAppStore';
 import { apiLogin, removeToken, setToken } from '@/lib/api';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Chrome } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -154,18 +154,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted">atau</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
 
-          {/* Google login */}
-          <button className="w-full py-3 bg-surface-2 border border-border rounded-xl font-medium hover:border-primary/30 transition-colors flex items-center justify-center gap-3">
-            <Chrome className="w-5 h-5" />
-            Masuk dengan Google
-          </button>
 
           {/* Register link */}
           <p className="text-center text-sm text-muted mt-6">

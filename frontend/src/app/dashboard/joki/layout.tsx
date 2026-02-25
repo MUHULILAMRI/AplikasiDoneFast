@@ -10,6 +10,7 @@ import {
   ChevronLeft, ChevronRight, User, Zap
 } from 'lucide-react';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import { useAppStore } from '@/store/useAppStore';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/joki' },
@@ -23,11 +24,25 @@ const NAV_ITEMS = [
 
 export default function JokiDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, logout } = useAppStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
+  // Helper untuk mendapatkan nama panggilan
+  const firstName = user?.name ? user.name.split(' ')[0] : 'Joki';
+  const userRole = user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'Joki';
+
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full animate-float-1" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full animate-float-2" />
+        <div className="absolute top-[20%] right-[10%] w-[20%] h-[20%] bg-purple-500/5 blur-[100px] rounded-full animate-float-1" />
+      </div>
+
+      <div className="fixed inset-0 pointer-events-none z-[1] opacity-[0.03] bg-noise" />
+
       {/* Mobile Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -42,7 +57,7 @@ export default function JokiDashboardLayout({ children }: { children: React.Reac
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${collapsed ? 'w-20' : 'w-64'} glass border-r border-border flex flex-col transition-all duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${collapsed ? 'w-20' : 'w-64'} glass-morphism border-r border-white/5 flex flex-col transition-all duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}>
         <div className={`p-6 border-b border-border flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
           {!collapsed && (
@@ -89,19 +104,23 @@ export default function JokiDashboardLayout({ children }: { children: React.Reac
         <div className={`p-4 border-t border-border ${collapsed ? 'flex justify-center' : ''}`}>
           {!collapsed ? (
             <div className="flex items-center gap-3 p-3 bg-surface-2 rounded-xl">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center text-sm">
-                👨‍💻
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center text-sm border border-white/10">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  '👨‍💻'
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Alex Coder</p>
-                <p className="text-xs text-muted">Joki Senior</p>
+                <p className="text-sm font-medium truncate">{user?.name || 'Loading...'}</p>
+                <p className="text-xs text-muted">{userRole}</p>
               </div>
-              <button className="p-1.5 hover:bg-surface rounded-lg">
+              <button onClick={logout} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors" title="Logout">
                 <LogOut className="w-4 h-4 text-muted" />
               </button>
             </div>
           ) : (
-            <button className="p-2 hover:bg-surface-2 rounded-lg">
+            <button onClick={logout} className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Logout">
               <LogOut className="w-5 h-5 text-muted" />
             </button>
           )}
@@ -111,15 +130,15 @@ export default function JokiDashboardLayout({ children }: { children: React.Reac
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="glass border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        <header className="px-6 py-4 flex items-center justify-between sticky top-0 z-30 transition-all bg-background/50 backdrop-blur-md border-b border-border/50">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-surface-2 rounded-lg">
               <Menu className="w-5 h-5" />
             </button>
             <div>
               <Breadcrumbs />
-              <h2 className="font-semibold text-sm">Selamat Datang, Alex! 👋</h2>
-              <p className="text-xs text-muted">Mari selesaikan tugas hari ini</p>
+              <h2 className="font-semibold text-sm tracking-tight text-shimmer">Selamat Datang, {firstName}! 👋</h2>
+              <p className="text-xs text-muted font-medium">Mari selesaikan tugas hari ini</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

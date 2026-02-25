@@ -211,19 +211,19 @@ export default function JokiSettingsPage() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">DANA / OVO / GoPay / ShopeePay</label>
-            <input type="text" defaultValue="082291220759" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="text" placeholder="Masukkan nomor e-wallet" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Bank BRI</label>
-            <input type="text" defaultValue="082291220759" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="text" placeholder="Masukkan nomor rekening BRI" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">SeaBank</label>
-            <input type="text" defaultValue="082291220759" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="text" placeholder="Masukkan nomor rekening SeaBank" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Nama Pemilik Rekening</label>
-            <input type="text" defaultValue="DoneFast" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
+            <input type="text" placeholder="Nama sesuai buku tabungan" className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground focus:outline-none focus:border-primary/50" />
           </div>
         </div>
         <button className="mt-6 flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-accent to-primary text-white rounded-xl text-sm font-medium hover:opacity-90">

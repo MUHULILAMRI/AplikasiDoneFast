@@ -45,15 +45,22 @@ export default function MarketplacePage() {
 
     try {
       const res = await apiGetServices(params);
-      if (res.success) {
-        const { services: data, totalPages: total, total: count } = res.data as any;
-        setServices(data.map((s: any) => ({
-          ...s,
-          category: s.category.toLowerCase() as ServiceCategory,
-          base_price: Number(s.base_price)
-        })));
-        setTotalPages(total);
-        setTotalResult(count);
+      if (res.success && res.data) {
+        const data = res.data as any[];
+        const pagination = (res as any).pagination;
+
+        if (data && Array.isArray(data)) {
+          setServices(data.map((s: any) => ({
+            ...s,
+            category: s.category?.toLowerCase() as ServiceCategory || 'akademik',
+            base_price: Number(s.base_price) || 0
+          })));
+        } else {
+          setServices([]);
+        }
+
+        setTotalPages(pagination?.totalPages || 1);
+        setTotalResult(pagination?.total || data?.length || 0);
       }
     } catch (err) {
       console.error('Error loading services:', err);

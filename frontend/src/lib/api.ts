@@ -353,6 +353,13 @@ export async function apiAdminConfirmPayment(orderId: string) {
   });
 }
 
+export async function apiAdminQuoteOrder(orderId: string, data: { price: number; difficulty?: string }) {
+  return request<unknown>(`/admin/orders/${orderId}/quote`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 // ============================================
 // Joki APIs
 // ============================================

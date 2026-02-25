@@ -46,24 +46,26 @@ export default function JokiDashboardPage() {
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Order Aktif', value: String(dashStats.active), icon: ClipboardList, color: 'from-blue-500 to-indigo-500', sub: '' },
-            { label: 'Selesai Bulan Ini', value: String(dashStats.completed), icon: CheckCircle, color: 'from-green-500 to-emerald-500', sub: '' },
-            { label: 'Komisi Bulan Ini', value: formatCurrency(dashStats.commission), icon: DollarSign, color: 'from-purple-500 to-pink-500', sub: '' },
-            { label: 'Rating', value: String(dashStats.rating || '-'), icon: Star, color: 'from-yellow-500 to-amber-500', sub: `${dashStats.reviews} reviews` },
+            { label: 'Order Aktif', value: String(dashStats.active), icon: ClipboardList, color: 'from-blue-500/20 to-indigo-500/20', iconColor: 'text-indigo-400', sub: '' },
+            { label: 'Selesai Bulan Ini', value: String(dashStats.completed), icon: CheckCircle, color: 'from-green-500/20 to-emerald-500/20', iconColor: 'text-emerald-400', sub: '' },
+            { label: 'Komisi Bulan Ini', value: formatCurrency(dashStats.commission), icon: DollarSign, color: 'from-purple-500/20 to-pink-500/20', iconColor: 'text-pink-400', sub: '' },
+            { label: 'Rating', value: String(dashStats.rating || '-'), icon: Star, color: 'from-yellow-500/20 to-amber-500/20', iconColor: 'text-amber-400', sub: `${dashStats.reviews} reviews` },
           ].map((stat, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="glass rounded-2xl p-5"
+              transition={{ delay: i * 0.1, ease: 'easeOut' }}
+              whileHover={{ y: -5, transition: { duration: 0.2 } }}
+              className="glass border-white/5 rounded-2xl p-5 relative overflow-hidden group shadow-lg shadow-black/20"
             >
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
-                <stat.icon className="w-5 h-5 text-white" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-white/5 to-transparent rounded-bl-[100px] pointer-events-none" />
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
               </div>
-              <p className="text-xl font-bold">{stat.value}</p>
-              <p className="text-xs text-muted mt-1">{stat.label}</p>
-              <p className="text-[10px] text-accent mt-0.5">{stat.sub}</p>
+              <p className="text-xl font-bold tracking-tight">{stat.value}</p>
+              <p className="text-xs text-muted font-medium mt-1">{stat.label}</p>
+              <p className="text-[10px] text-accent/80 mt-0.5">{stat.sub}</p>
             </motion.div>
           ))}
         </div>
@@ -82,17 +84,17 @@ export default function JokiDashboardPage() {
             Performa Minggu Ini
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-surface-2 rounded-xl">
-              <div className="w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center mx-auto mb-2">
+            <div className="text-center p-4 bg-white/5 border border-white/5 rounded-2xl group hover:bg-white/10 transition-colors">
+              <div className="w-16 h-16 rounded-full border-4 border-accent/30 border-t-accent flex items-center justify-center mx-auto mb-2 relative group-hover:rotate-12 transition-transform">
                 <span className="text-lg font-bold text-accent">96%</span>
               </div>
-              <p className="text-xs text-muted">On-Time Rate</p>
+              <p className="text-xs text-muted font-medium">On-Time Rate</p>
             </div>
-            <div className="text-center p-4 bg-surface-2 rounded-xl">
-              <div className="w-16 h-16 rounded-full border-4 border-primary flex items-center justify-center mx-auto mb-2">
+            <div className="text-center p-4 bg-white/5 border border-white/5 rounded-2xl group hover:bg-white/10 transition-colors">
+              <div className="w-16 h-16 rounded-full border-4 border-primary/30 border-t-primary flex items-center justify-center mx-auto mb-2 relative group-hover:-rotate-12 transition-transform">
                 <span className="text-lg font-bold text-primary-light">98%</span>
               </div>
-              <p className="text-xs text-muted">Quality Score</p>
+              <p className="text-xs text-muted font-medium">Quality Score</p>
             </div>
           </div>
           <div className="mt-4 p-3 bg-accent/5 border border-accent/20 rounded-xl">
@@ -105,10 +107,10 @@ export default function JokiDashboardPage() {
 
         {/* Active Orders */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
-          className="lg:col-span-2 glass rounded-2xl p-6"
+          className="lg:col-span-2 glass border-white/5 rounded-2xl p-6 shadow-xl shadow-black/40"
         >
           <h3 className="font-semibold mb-4 flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary-light" />
@@ -182,17 +184,19 @@ export default function JokiDashboardPage() {
           <h3 className="font-semibold mb-4">Aktivitas Terakhir</h3>
           <div className="space-y-3">
             {[
-              { text: 'Upload hasil ORD-098', time: '2 jam lalu', icon: CheckCircle, color: 'text-green-400' },
-              { text: 'Chat baru dari Ahmad Rizki', time: '3 jam lalu', icon: AlertCircle, color: 'text-blue-400' },
-              { text: 'Order baru di-assign: ORD-003', time: '5 jam lalu', icon: ClipboardList, color: 'text-purple-400' },
-              { text: 'Revisi diminta untuk ORD-095', time: '1 hari lalu', icon: AlertCircle, color: 'text-yellow-400' },
-              { text: 'Komisi Rp 350.000 masuk', time: '2 hari lalu', icon: DollarSign, color: 'text-accent-green' },
+              { text: 'Upload hasil ORD-098', time: '2 jam lalu', icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10' },
+              { text: 'Chat baru dari Ahmad Rizki', time: '3 jam lalu', icon: AlertCircle, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+              { text: 'Order baru di-assign: ORD-003', time: '5 jam lalu', icon: ClipboardList, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+              { text: 'Revisi diminta untuk ORD-095', time: '1 hari lalu', icon: AlertCircle, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+              { text: 'Komisi Rp 350.000 masuk', time: '2 hari lalu', icon: DollarSign, color: 'text-accent-green', bg: 'bg-emerald-500/10' },
             ].map((activity, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 bg-surface-2 rounded-xl">
-                <activity.icon className={`w-4 h-4 ${activity.color} flex-shrink-0`} />
+              <div key={i} className="flex items-center gap-3 p-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors group cursor-default">
+                <div className={`w-8 h-8 rounded-lg ${activity.bg} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
+                  <activity.icon className={`w-4 h-4 ${activity.color}`} />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{activity.text}</p>
-                  <p className="text-xs text-muted">{activity.time}</p>
+                  <p className="text-sm truncate font-medium">{activity.text}</p>
+                  <p className="text-xs text-muted/80">{activity.time}</p>
                 </div>
               </div>
             ))}

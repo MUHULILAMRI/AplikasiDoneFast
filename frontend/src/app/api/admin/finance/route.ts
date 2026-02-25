@@ -19,21 +19,32 @@ export async function GET(req: NextRequest) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const [
-      totalRevenue,
-      monthlyRevenue,
+      paidTransactions,
+      monthlyTransactions,
       totalTransactions,
       recentTransactions,
-      paidCount,
       pendingCount,
       failedCount,
     ] = await Promise.all([
-      prisma.transaction.aggregate({
+      prisma.transaction.findMany({
         where: { payment_status: 'PAID' },
-        _sum: { amount: true },
+        include: {
+          order: {
+            include: {
+              joki: { select: { commission_rate: true } }
+            }
+          }
+        }
       }),
-      prisma.transaction.aggregate({
+      prisma.transaction.findMany({
         where: { payment_status: 'PAID', paid_at: { gte: startOfMonth } },
-        _sum: { amount: true },
+        include: {
+          order: {
+            include: {
+              joki: { select: { commission_rate: true } }
+            }
+          }
+        }
       }),
       prisma.transaction.count(),
       prisma.transaction.findMany({
@@ -45,27 +56,42 @@ export async function GET(req: NextRequest) {
           user: { select: { name: true, email: true } },
         },
       }),
-      prisma.transaction.count({ where: { payment_status: 'PAID' } }),
       prisma.transaction.count({ where: { payment_status: 'PENDING' } }),
       prisma.transaction.count({ where: { payment_status: 'FAILED' } }),
     ]);
 
-    // Calculate profit (assuming 30% platform fee)
-    const revenue = Number(totalRevenue._sum.amount || 0);
-    const monthlyRev = Number(monthlyRevenue._sum.amount || 0);
+    // Dynamic Logic: Calculate Profit & Commission
+    // If order has no joki yet, assume platform takes 100% until assigned? 
+    // Or assume default 50/50 for projections? Let's use 50% as default fallback.
+    const DEFAULT_COMMISSION = 50;
+
+    const calculateStats = (txs: any[]) => {
+      let revenue = 0;
+      let commission = 0;
+      txs.forEach(tx => {
+        const amount = Number(tx.amount || 0);
+        revenue += amount;
+        const rate = tx.order?.joki?.commission_rate ?? DEFAULT_COMMISSION;
+        commission += (amount * rate) / 100;
+      });
+      return { revenue, commission, profit: revenue - commission };
+    };
+
+    const totalStats = calculateStats(paidTransactions);
+    const monthlyStats = calculateStats(monthlyTransactions);
 
     return apiSuccess({
       summary: {
-        total_revenue: revenue,
-        monthly_revenue: monthlyRev,
-        total_profit: Math.round(revenue * 0.3),
-        monthly_profit: Math.round(monthlyRev * 0.3),
-        total_commission: Math.round(revenue * 0.7),
+        total_revenue: totalStats.revenue,
+        monthly_revenue: monthlyStats.revenue,
+        total_profit: Math.round(totalStats.profit),
+        monthly_profit: Math.round(monthlyStats.profit),
+        total_commission: Math.round(totalStats.commission),
         total_transactions: totalTransactions,
-        avg_order_value: paidCount > 0 ? Math.round(revenue / paidCount) : 0,
+        avg_order_value: paidTransactions.length > 0 ? Math.round(totalStats.revenue / paidTransactions.length) : 0,
       },
       transaction_summary: {
-        paid: paidCount,
+        paid: paidTransactions.length,
         pending: pendingCount,
         failed: failedCount,
       },

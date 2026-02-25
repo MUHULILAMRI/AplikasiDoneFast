@@ -11,6 +11,7 @@
   --surface-2: #1a1a2e;
   --border: #2a2a3e;
   --muted: #71717a;
+  --surface-3: #1e1e38;
 }
 
 @theme inline {
@@ -62,11 +63,18 @@ body {
   background-clip: text;
 }
 
-/* Glass morphism */
 .glass {
-  background: rgba(18, 18, 26, 0.8);
+  background: rgba(18, 18, 26, 0.7);
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 /* Glow effects */
@@ -98,9 +106,14 @@ body {
 /* Grid background pattern */
 .bg-grid {
   background-image:
-    linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
-  background-size: 64px 64px;
+    linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.bg-dot-grid {
+  background-image: radial-gradient(rgba(99, 102, 241, 0.15) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* ============================

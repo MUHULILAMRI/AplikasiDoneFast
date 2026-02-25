@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       const complexWords = [
         'machine learning', 'deep learning', 'neural network', 'statistical analysis',
         'API integration', 'full stack', 'database design', 'microservices',
-        'skripsi', 'tesis', 'disertasi', 'jurnal internasional',
+        'skripsi', 'disertasi', 'jurnal internasional',
         'autocad', '3d modeling', 'rendering', 'animasi',
       ];
       const matchCount = complexWords.filter(w =>

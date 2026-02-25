@@ -3,12 +3,17 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUp, MessageCircle } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 const WA_NUMBER = '6285998006060';
 const WA_MESSAGE = encodeURIComponent('Halo DoneFast! Saya ingin konsultasi mengenai layanan yang tersedia.');
 
 export default function FloatingActions() {
+    const pathname = usePathname();
     const [showBackToTop, setShowBackToTop] = useState(false);
+
+    // Hanya unculkan di halaman utama (home)
+    const shouldHide = pathname !== '/';
 
     useEffect(() => {
         const handleScroll = () => setShowBackToTop(window.scrollY > 400);
@@ -19,6 +24,8 @@ export default function FloatingActions() {
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
+
+    if (shouldHide) return null;
 
     return (
         <div className="fixed bottom-6 right-6 z-40 flex flex-col items-center gap-3">

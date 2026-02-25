@@ -117,9 +117,9 @@ export async function POST(
       },
     });
 
-    // Bidirectional notification
-    if (auth.user.role === 'CUSTOMER' || auth.user.role === 'ADMIN') {
-      // Customer/admin sends — notify joki
+    // Notifikasi: hanya customer ↔ joki (admin tidak trigger notif ke user)
+    if (auth.user.role === 'CUSTOMER') {
+      // Customer mengirim → notif ke joki jika sudah assigned
       if (order.joki?.user_id) {
         await prisma.notification.create({
           data: {
@@ -130,8 +130,8 @@ export async function POST(
           },
         });
       }
-    } else {
-      // Joki sends — notify customer
+    } else if (auth.user.role === 'JOKI') {
+      // Joki mengirim → notif ke customer
       await prisma.notification.create({
         data: {
           user_id: order.user_id,
@@ -141,6 +141,7 @@ export async function POST(
         },
       });
     }
+    // ADMIN mengirim → tidak ada notifikasi ke user (admin bisa dilihat langsung di chat)
 
     return apiSuccess(chatMessage, 201);
   } catch (error) {

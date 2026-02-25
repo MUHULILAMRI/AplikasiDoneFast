@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
   output   = "../node_modules/.prisma/client"
@@ -11,78 +8,52 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// User Model
-// ============================================
 model User {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String
-  email         String    @unique
+  email         String         @unique
   password_hash String
-  role          UserRole  @default(CUSTOMER)
+  role          UserRole       @default(CUSTOMER)
   avatar        String?
   phone         String?
-  balance       Decimal   @default(0)
-  is_vip        Boolean   @default(false)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-
-  orders        Order[]
+  balance       Decimal        @default(0)
+  is_vip        Boolean        @default(false)
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
   sent_messages ChatMessage[]
-  notifications Notification[]
   joki_profile  JokiMember?
+  notifications Notification[]
+  orders        Order[]
+  referred_by   Referral?      @relation("referred")
+  referrals     Referral[]     @relation("referrer")
   transactions  Transaction[]
-  referrals     Referral[]    @relation("referrer")
-  referred_by   Referral?     @relation("referred")
-  reviews       Review[]
 
   @@map("users")
 }
 
-enum UserRole {
-  CUSTOMER
-  ADMIN
-  JOKI
-}
-
-// ============================================
-// Service Model
-// ============================================
 model Service {
-  id            String          @id @default(cuid())
-  name          String
-  description   String
-  category      ServiceCategory
-  base_price    Decimal
-  rating        Float           @default(0)
-  total_orders  Int             @default(0)
+  id             String          @id @default(cuid())
+  name           String
+  description    String
+  category       ServiceCategory
+  base_price     Decimal
+  rating         Float           @default(0)
+  total_orders   Int             @default(0)
   estimated_days Int
-  image         String?
-  features      String[]
-  is_popular    Boolean         @default(false)
-  is_active     Boolean         @default(true)
-  created_at    DateTime        @default(now())
-  updated_at    DateTime        @updatedAt
-
-  orders        Order[]
+  image          String?
+  features       String[]
+  is_popular     Boolean         @default(false)
+  is_active      Boolean         @default(true)
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+  orders         Order[]
 
   @@map("services")
 }
 
-enum ServiceCategory {
-  AKADEMIK
-  ARSITEKTUR
-  CODING
-  KONSULTASI
-  AI_TEKNOLOGI
-}
-
-// ============================================
-// Order Model
-// ============================================
 model Order {
-  id             String        @id @default(cuid())
-  order_number   String        @unique
+  id             String          @id @default(cuid())
+  order_number   String          @unique
   user_id        String
   service_id     String
   joki_id        String?
@@ -92,47 +63,28 @@ model Order {
   files          String[]
   deadline       DateTime
   price          Decimal
-  status         OrderStatus   @default(PENDING_PAYMENT)
+  status         OrderStatus     @default(WAITING_FOR_QUOTE)
   difficulty     DifficultyLevel @default(MEDIUM)
   pages          Int?
-  revisions_left Int           @default(2)
+  revisions_left Int             @default(2)
   result_files   String[]
-  progress       Int           @default(0)
   voucher_id     String?
-  discount       Decimal       @default(0)
-  created_at     DateTime      @default(now())
-  updated_at     DateTime      @updatedAt
-
-  user           User          @relation(fields: [user_id], references: [id])
-  service        Service       @relation(fields: [service_id], references: [id])
-  joki           JokiMember?   @relation(fields: [joki_id], references: [id])
-  voucher        Voucher?      @relation(fields: [voucher_id], references: [id])
+  discount       Decimal         @default(0)
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+  progress       Int             @default(0)
+  has_journal    Boolean?        @default(true)
+  urgency_level  String          @default("STANDAR")
   messages       ChatMessage[]
+  joki           JokiMember?     @relation(fields: [joki_id], references: [id])
+  service        Service         @relation(fields: [service_id], references: [id])
+  user           User            @relation(fields: [user_id], references: [id])
+  voucher        Voucher?        @relation(fields: [voucher_id], references: [id])
   transactions   Transaction[]
-  review         Review?
 
   @@map("orders")
 }
 
-enum OrderStatus {
-  PENDING_PAYMENT
-  PAID
-  IN_PROGRESS
-  REVISION
-  COMPLETED
-  CANCELLED
-}
-
-enum DifficultyLevel {
-  EASY
-  MEDIUM
-  HARD
-  EXPERT
-}
-
-// ============================================
-// Joki Member Model
-// ============================================
 model JokiMember {
   id              String   @id @default(cuid())
   user_id         String   @unique
@@ -144,17 +96,12 @@ model JokiMember {
   is_available    Boolean  @default(true)
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
-
   user            User     @relation(fields: [user_id], references: [id])
   orders          Order[]
-  reviews         Review[]
 
   @@map("joki_members")
 }
 
-// ============================================
-// Chat Message Model
-// ============================================
 model ChatMessage {
   id          String   @id @default(cuid())
   order_id    String
@@ -164,54 +111,29 @@ model ChatMessage {
   file_url    String?
   is_read     Boolean  @default(false)
   created_at  DateTime @default(now())
-
   order       Order    @relation(fields: [order_id], references: [id])
   sender      User     @relation(fields: [sender_id], references: [id])
 
   @@map("chat_messages")
 }
 
-// ============================================
-// Transaction Model
-// ============================================
 model Transaction {
-  id              String        @id @default(cuid())
-  order_id        String
-  user_id         String
-  amount          Decimal
-  payment_method  PaymentMethod
-  payment_status  PaymentStatus @default(PENDING)
-  payment_url     String?
-  external_id     String?
-  paid_at         DateTime?
-  created_at      DateTime      @default(now())
-
-  order           Order         @relation(fields: [order_id], references: [id])
-  user            User          @relation(fields: [user_id], references: [id])
+  id             String        @id @default(cuid())
+  order_id       String
+  user_id        String
+  amount         Decimal
+  payment_method PaymentMethod
+  payment_status PaymentStatus @default(PENDING)
+  payment_url    String?
+  external_id    String?
+  paid_at        DateTime?
+  created_at     DateTime      @default(now())
+  order          Order         @relation(fields: [order_id], references: [id])
+  user           User          @relation(fields: [user_id], references: [id])
 
   @@map("transactions")
 }
 
-enum PaymentMethod {
-  QRIS
-  DANA
-  OVO
-  GOPAY
-  SHOPEEPAY
-  BANK_TRANSFER
-  EWALLET
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  REFUNDED
-}
-
-// ============================================
-// Voucher Model
-// ============================================
 model Voucher {
   id               String   @id @default(cuid())
   code             String   @unique
@@ -224,15 +146,11 @@ model Voucher {
   max_usage        Int      @default(100)
   is_active        Boolean  @default(true)
   created_at       DateTime @default(now())
-
   orders           Order[]
 
   @@map("vouchers")
 }
 
-// ============================================
-// Notification Model
-// ============================================
 model Notification {
   id         String           @id @default(cuid())
   user_id    String
@@ -241,10 +159,76 @@ model Notification {
   type       NotificationType
   is_read    Boolean          @default(false)
   created_at DateTime         @default(now())
-
   user       User             @relation(fields: [user_id], references: [id])
 
   @@map("notifications")
+}
+
+model Referral {
+  id          String   @id @default(cuid())
+  referrer_id String
+  referred_id String   @unique
+  reward      Decimal  @default(0)
+  is_claimed  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  referred    User     @relation("referred", fields: [referred_id], references: [id])
+  referrer    User     @relation("referrer", fields: [referrer_id], references: [id])
+
+  @@map("referrals")
+}
+
+model SiteSettings {
+  key        String   @id
+  value      String
+  updated_at DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  JOKI
+}
+
+enum ServiceCategory {
+  AKADEMIK
+  ARSITEKTUR
+  CODING
+  KONSULTASI
+  AI_TEKNOLOGI
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  IN_PROGRESS
+  REVISION
+  COMPLETED
+  CANCELLED
+  WAITING_FOR_QUOTE
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum PaymentMethod {
+  QRIS
+  DANA
+  OVO
+  BANK_TRANSFER
+  EWALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
 }
 
 enum NotificationType {
@@ -254,51 +238,4 @@ enum NotificationType {
   DEADLINE
   PAYMENT
   PROMO
-}
-
-// ============================================
-// Referral Model
-// ============================================
-model Referral {
-  id          String   @id @default(cuid())
-  referrer_id String
-  referred_id String   @unique
-  reward      Decimal  @default(0)
-  is_claimed  Boolean  @default(false)
-  created_at  DateTime @default(now())
-
-  referrer    User     @relation("referrer", fields: [referrer_id], references: [id])
-  referred    User     @relation("referred", fields: [referred_id], references: [id])
-
-  @@map("referrals")
-}
-
-// ============================================
-// Review Model
-// ============================================
-model Review {
-  id         String   @id @default(cuid())
-  order_id   String   @unique
-  user_id    String
-  joki_id    String
-  rating     Int      @default(5)
-  comment    String?
-  created_at DateTime @default(now())
-
-  order      Order    @relation(fields: [order_id], references: [id])
-  user       User     @relation(fields: [user_id], references: [id])
-  joki       JokiMember @relation(fields: [joki_id], references: [id])
-
-  @@map("reviews")
-}
-
-// ============================================
-// Site Settings (Key-Value Store)
-// ============================================
-model SiteSettings {
-  key        String   @id
-  value      String
-  updated_at DateTime @updatedAt
-
-  @@map("site_settings")
 }

@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiGetOrders, apiAdminTeam, apiAdminAssignOrder, apiAdminCancelOrder, apiGetOrder, apiAdminConfirmPayment } from '@/lib/api';
-import { formatCurrency, getStatusColor, getStatusLabel, formatDateTime } from '@/lib/utils';
 import {
   Search, Eye, UserPlus, MessageCircle,
   Clock, MoreVertical, Download, RefreshCw,
@@ -11,8 +9,10 @@ import {
   Package, TrendingUp, Ban, ChevronRight,
   User, CalendarDays, FileText, Tag, X,
   Paperclip, ExternalLink, FileCheck,
-  CheckCircle
+  CheckCircle, Landmark, Zap
 } from 'lucide-react';
+import { apiGetOrders, apiAdminTeam, apiAdminAssignOrder, apiAdminCancelOrder, apiGetOrder, apiAdminConfirmPayment, apiAdminQuoteOrder } from '@/lib/api';
+import { formatCurrency, getStatusColor, getStatusLabel, formatDateTime } from '@/lib/utils';
 
 type OrderRecord = Record<string, unknown>;
 
@@ -37,6 +37,12 @@ export default function OrderManagementPage() {
 
   // Action menu
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  // Quote modal
+  const [quoteModal, setQuoteModal] = useState<OrderRecord | null>(null);
+  const [quotePrice, setQuotePrice] = useState('');
+  const [quoteDifficulty, setQuoteDifficulty] = useState('MEDIUM');
+  const [submittingQuote, setSubmittingQuote] = useState(false);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -171,6 +177,30 @@ export default function OrderManagementPage() {
     }
   };
 
+  const handleSetQuote = async () => {
+    if (!quoteModal || !quotePrice) return;
+    setSubmittingQuote(true);
+    try {
+      const res = await apiAdminQuoteOrder(quoteModal.id as string, {
+        price: Number(quotePrice),
+        difficulty: quoteDifficulty,
+      });
+      if (res.success) {
+        alert('Harga berhasil ditetapkan!');
+        setQuoteModal(null);
+        setQuotePrice('');
+        loadOrders();
+      } else {
+        alert(res.error || 'Gagal menetapkan harga');
+      }
+    } catch (error) {
+      console.error('Set quote error:', error);
+      alert('Terjadi kesalahan');
+    } finally {
+      setSubmittingQuote(false);
+    }
+  };
+
   const filteredOrders = useMemo(() => orders.filter((order) => {
     if (filterStatus !== 'all' && order.status !== filterStatus.toUpperCase()) return false;
     if (searchQuery && !(order.title as string)?.toLowerCase().includes(searchQuery.toLowerCase()) && !(order.order_number as string)?.toLowerCase().includes(searchQuery.toLowerCase()) && !(order.id as string)?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -180,11 +210,12 @@ export default function OrderManagementPage() {
   // Stats
   const stats = useMemo(() => {
     const total = orders.length;
+    const waitingQuote = orders.filter(o => o.status === 'WAITING_FOR_QUOTE').length;
     const pending = orders.filter(o => o.status === 'PENDING_PAYMENT').length;
     const inProgress = orders.filter(o => ['PAID', 'IN_PROGRESS', 'REVISION'].includes(o.status as string)).length;
     const completed = orders.filter(o => o.status === 'COMPLETED').length;
     const cancelled = orders.filter(o => o.status === 'CANCELLED').length;
-    return { total, pending, inProgress, completed, cancelled };
+    return { total, waitingQuote, pending, inProgress, completed, cancelled };
   }, [orders]);
 
   const cancelReasons = [
@@ -223,10 +254,10 @@ export default function OrderManagementPage() {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: 'Total Order', value: stats.total, icon: Package, color: 'from-blue-500 to-blue-600', bg: 'bg-blue-500/10' },
-          { label: 'Menunggu', value: stats.pending, icon: Clock, color: 'from-yellow-500 to-amber-500', bg: 'bg-yellow-500/10' },
+          { label: 'Butuh Harga', value: stats.waitingQuote, icon: Tag, color: 'from-orange-500 to-amber-500', bg: 'bg-orange-500/10' },
+          { label: 'Menunggu Bayar', value: stats.pending, icon: Clock, color: 'from-yellow-500 to-amber-500', bg: 'bg-yellow-500/10' },
           { label: 'Diproses', value: stats.inProgress, icon: TrendingUp, color: 'from-purple-500 to-violet-500', bg: 'bg-purple-500/10' },
           { label: 'Selesai', value: stats.completed, icon: CheckCircle2, color: 'from-green-500 to-emerald-500', bg: 'bg-green-500/10' },
-          { label: 'Dibatalkan', value: stats.cancelled, icon: Ban, color: 'from-red-500 to-rose-500', bg: 'bg-red-500/10' },
         ].map((stat) => (
           <motion.div
             key={stat.label}
@@ -263,7 +294,8 @@ export default function OrderManagementPage() {
           <div className="flex gap-2 flex-wrap">
             {[
               { id: 'all', label: 'Semua', count: stats.total },
-              { id: 'pending_payment', label: 'Pending', count: stats.pending },
+              { id: 'waiting_for_quote', label: 'Butuh Harga', count: stats.waitingQuote },
+              { id: 'pending_payment', label: 'Belum Bayar', count: stats.pending },
               { id: 'paid', label: 'Dibayar', count: orders.filter(o => o.status === 'PAID').length },
               { id: 'in_progress', label: 'Diproses', count: orders.filter(o => o.status === 'IN_PROGRESS').length },
               { id: 'revision', label: 'Revisi', count: orders.filter(o => o.status === 'REVISION').length },
@@ -294,144 +326,177 @@ export default function OrderManagementPage() {
       {/* Order List */}
       <div className="space-y-4 pb-48">
         {loading ? (
-          <div className="glass rounded-2xl p-12 text-center">
-            <RefreshCw className="w-8 h-8 text-primary-light animate-spin mx-auto mb-3" />
-            <p className="text-muted">Memuat data order...</p>
+          <div className="glass rounded-3xl p-20 text-center">
+            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-6" />
+            <p className="text-muted text-sm font-bold animate-pulse">Sinkronisasi data order...</p>
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="glass rounded-2xl p-12 text-center">
-            <Package className="w-12 h-12 text-muted mx-auto mb-3 opacity-50" />
-            <p className="text-muted text-lg">Tidak ada order ditemukan</p>
-            <p className="text-muted text-sm mt-1">Coba ubah filter atau kata kunci pencarian</p>
+          <div className="glass rounded-3xl p-20 text-center">
+            <Package className="w-16 h-16 text-muted mx-auto mb-4 opacity-20" />
+            <p className="text-foreground text-lg font-black">Void Repository</p>
+            <p className="text-muted text-xs mt-1">Tidak ada data order yang sesuai dengan kriteria filter.</p>
           </div>
         ) : (
           filteredOrders.map((order, i) => (
             <motion.div
               key={order.id as string}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
-              className={`glass rounded-2xl p-6 hover:border-primary/20 transition-all ${(order.status as string) === 'CANCELLED' ? 'opacity-70' : ''
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className={`group glass rounded-3xl p-6 hover:border-primary/40 hover:bg-surface-2/40 transition-all duration-300 ${(order.status as string) === 'CANCELLED' ? 'opacity-50 grayscale' : ''
                 }`}
               style={{ position: 'relative', zIndex: openMenu === order.id ? 50 : 0 }}
             >
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                {/* Order Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <span className="font-mono text-sm text-primary-light font-medium">{(order.order_number as string) || (order.id as string)}</span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status as string)}`}>
-                      {getStatusLabel(order.status as string)}
-                    </span>
+              <div className="flex flex-col xl:flex-row xl:items-center gap-6">
+                {/* Visual ID & Category */}
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden ${(order.status as string) === 'COMPLETED' ? 'bg-green-500/10' : 'bg-primary/5'
+                    }`}>
+                    <Package className={`w-7 h-7 ${(order.status as string) === 'COMPLETED' ? 'text-green-400' : 'text-primary-light'}`} />
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
                   </div>
-                  <h3 className="font-semibold truncate">{order.title as string}</h3>
-                  <div className="flex items-center gap-4 mt-1">
-                    <p className="text-sm text-muted flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      {(order.user as OrderRecord)?.name as string || 'Pelanggan'}
-                    </p>
-                    <p className="text-sm text-muted flex items-center gap-1">
-                      <Tag className="w-3 h-3" />
-                      {(order.service as OrderRecord)?.category as string || '-'}
-                    </p>
+                  <div className="min-w-[120px]">
+                    <p className="text-[10px] font-black font-mono text-primary-light uppercase tracking-widest">{order.order_number as string}</p>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground bg-surface-2 px-2 py-0.5 rounded border border-border/50 mt-1 inline-block">
+                      {String((order.service as OrderRecord)?.category || 'GENERAL')}
+                    </span>
                   </div>
                 </div>
 
-                {/* Price & Deadline */}
-                <div className="flex items-center gap-6">
+                {/* Core Details */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-black tracking-tight group-hover:text-primary-light transition-colors truncate">{order.title as string}</h3>
+                  <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-surface-2 flex items-center justify-center border border-border">
+                        <User className="w-3 h-3 text-muted" />
+                      </div>
+                      <span className="text-[11px] font-bold text-muted group-hover:text-foreground transition-colors">{String((order.user as OrderRecord)?.name || 'User')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 border-l border-border/50 pl-4">
+                      <CalendarDays className="w-3.5 h-3.5 text-muted" />
+                      <span className="text-[11px] font-bold text-muted" suppressHydrationWarning>{order.deadline ? new Date(order.deadline as string).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status & Valuation */}
+                <div className="flex items-center gap-8 xl:justify-end min-w-max">
                   <div className="text-right">
-                    <p className="text-lg font-bold">{formatCurrency(order.price as number)}</p>
-                    <p className="text-xs text-muted flex items-center gap-1 justify-end">
-                      <Clock className="w-3 h-3" />
-                      {order.deadline ? new Date(order.deadline as string).toLocaleDateString('id-ID') : '-'}
-                    </p>
+                    <p className="text-sm font-black text-foreground">{formatCurrency(order.price as number)}</p>
+                    <p className="text-[9px] text-muted font-bold uppercase tracking-widest mt-0.5">Valuation</p>
                   </div>
 
-                  {/* Joki Assignment */}
-                  <div className="min-w-[140px]">
+                  <div className="flex flex-col items-center">
+                    <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm ${getStatusColor(order.status as string)}`}>
+                      {getStatusLabel(order.status as string)}
+                    </span>
+                    {order.status === 'PAID' && !order.joki_id && (
+                      <span className="text-[8px] font-bold text-orange-400 mt-1.5 animate-pulse uppercase tracking-widest">Wait Assign</span>
+                    )}
+                  </div>
+
+                  {/* Representative Component for Assignment */}
+                  <div className="min-w-[150px]">
                     {order.joki_id ? (
-                      <div className="flex items-center gap-2 p-2 bg-surface-2 rounded-xl border border-border">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-xs font-bold">
+                      <div className="flex items-center gap-3 p-2 bg-surface-2/50 rounded-2xl border border-primary/20">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-[10px] font-black shadow-lg">
                           {((jokiList.find((j) => j.id === order.joki_id) as OrderRecord)?.name as string)?.charAt(0) || 'J'}
                         </div>
-                        <span className="text-sm truncate">
-                          {(jokiList.find((j) => j.id === order.joki_id) as OrderRecord)?.name as string || 'Joki'}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-black truncate max-w-[80px]">
+                            {(jokiList.find((j) => j.id === order.joki_id) as OrderRecord)?.name as string || 'Joki'}
+                          </span>
+                          <span className="text-[8px] font-bold text-green-400 uppercase tracking-tighter">Active Agent</span>
+                        </div>
                       </div>
+                    ) : (order.status as string) === 'WAITING_FOR_QUOTE' ? (
+                      <button
+                        onClick={() => {
+                          setQuoteModal(order);
+                          setQuotePrice(String(order.price));
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500/20 transition-all"
+                      >
+                        <Tag className="w-3.5 h-3.5" />
+                        Tentukan Harga
+                      </button>
                     ) : (order.status as string) === 'PENDING_PAYMENT' ? (
                       <button
                         onClick={() => handleConfirmPayment(order.id as string)}
                         disabled={confirming === order.id}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl text-sm hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all disabled:opacity-50"
                       >
-                        {confirming === order.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        Konfirmasi Bayar
+                        {confirming === order.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                        Confirm Payment
                       </button>
                     ) : (order.status as string) === 'PAID' ? (
                       <button
                         onClick={() => setAssignModal(order.id as string)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/30 text-primary-light rounded-xl text-sm hover:bg-primary/20 transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 border border-primary/30 text-primary-light rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
                       >
-                        <UserPlus className="w-4 h-4" />
-                        Assign Joki
+                        <UserPlus className="w-3.5 h-3.5" />
+                        Assign Talent
                       </button>
                     ) : (
-                      <span className="text-xs text-muted italic">-</span>
+                      <div className="h-10 border border-dashed border-border rounded-2xl flex items-center justify-center">
+                        <span className="text-[9px] text-muted font-bold uppercase py-2">System Restricted</span>
+                      </div>
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-1 relative">
+                  {/* Actions Matrix */}
+                  <div className="flex gap-2 relative">
                     <button
                       onClick={() => handleViewDetail((order.id as string))}
-                      className="p-2 hover:bg-surface-2 rounded-lg transition-colors group"
-                      title="Lihat Detail"
+                      className="w-10 h-10 flex items-center justify-center bg-surface-2 border border-border rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all"
+                      title="Inspect"
                     >
-                      <Eye className="w-4 h-4 text-muted group-hover:text-primary-light transition-colors" />
-                    </button>
-                    <button className="p-2 hover:bg-surface-2 rounded-lg transition-colors group" title="Chat">
-                      <MessageCircle className="w-4 h-4 text-muted group-hover:text-primary-light transition-colors" />
+                      <Eye className="w-4 h-4 text-muted group-hover:text-primary-light" />
                     </button>
 
-                    {/* More Actions Dropdown */}
                     <div className="relative">
                       <button
                         onClick={() => setOpenMenu(openMenu === order.id as string ? null : order.id as string)}
-                        className="p-2 hover:bg-surface-2 rounded-lg transition-colors group"
-                        title="Aksi lainnya"
+                        className={`w-10 h-10 flex items-center justify-center border rounded-xl transition-all ${openMenu === order.id ? 'bg-primary border-primary text-white' : 'bg-surface-2 border-border hover:border-primary/50'
+                          }`}
                       >
-                        <MoreVertical className="w-4 h-4 text-muted group-hover:text-primary-light transition-colors" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
+
                       <AnimatePresence>
                         {openMenu === order.id && (
                           <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                            className="absolute right-0 top-full mt-1 w-48 bg-surface-2 border border-border rounded-xl shadow-2xl z-20 overflow-hidden"
+                            initial={{ opacity: 0, scale: 0.9, y: 10, x: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 10, x: 20 }}
+                            className="absolute right-0 bottom-full mb-3 w-56 bg-surface-2/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl z-[100] overflow-hidden"
                           >
-                            <button
-                              onClick={() => {
-                                handleViewDetail(order.id as string);
-                                setOpenMenu(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-foreground hover:bg-surface transition-colors"
-                            >
-                              <Eye className="w-4 h-4" />
-                              Lihat Detail
-                            </button>
-                            {!['COMPLETED', 'CANCELLED'].includes(order.status as string) && (
+                            <div className="p-2 space-y-1">
                               <button
-                                onClick={() => {
-                                  setCancelModal(order.id as string);
-                                  setOpenMenu(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                                onClick={() => { handleViewDetail(order.id as string); setOpenMenu(null); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-foreground hover:bg-primary/10 rounded-xl transition-colors"
                               >
-                                <XCircle className="w-4 h-4" />
-                                Batalkan Order
+                                <FileText className="w-4 h-4 text-primary-light" />
+                                Inspect Entity
                               </button>
-                            )}
+                              <button
+                                className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-foreground hover:bg-primary/10 rounded-xl transition-colors"
+                              >
+                                <MessageCircle className="w-4 h-4 text-primary-light" />
+                                Secure Channel
+                              </button>
+                              <div className="h-px bg-border/50 my-1" />
+                              {!['COMPLETED', 'CANCELLED'].includes(order.status as string) && (
+                                <button
+                                  onClick={() => { setCancelModal(order.id as string); setOpenMenu(null); }}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-[11px] font-black uppercase tracking-widest text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  Terminate
+                                </button>
+                              )}
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -440,19 +505,19 @@ export default function OrderManagementPage() {
                 </div>
               </div>
 
-              {/* Progress bar for in-progress orders */}
+              {/* Progress Analysis */}
               {(order.status as string)?.toUpperCase() === 'IN_PROGRESS' && (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <div className="flex items-center justify-between text-xs text-muted mb-2">
-                    <span>Progress</span>
-                    <span>{(order.progress as number) || 0}%</span>
+                <div className="mt-6 pt-6 border-t border-border/10">
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest mb-3">
+                    <span className="text-muted">Execution Progress</span>
+                    <span className="text-primary-light">{(order.progress as number) || 0}% Complete</span>
                   </div>
-                  <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden border border-border/30">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${(order.progress as number) || 0}%` }}
-                      transition={{ delay: 0.3, duration: 0.8 }}
-                      className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                      transition={{ delay: 0.5, duration: 1.5, ease: "easeOut" }}
+                      className="h-full bg-gradient-to-r from-primary via-primary-light to-accent rounded-full shadow-glow-sm shadow-primary/40"
                     />
                   </div>
                 </div>
@@ -471,61 +536,158 @@ export default function OrderManagementPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4"
             onClick={() => setAssignModal(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="glass rounded-2xl p-8 max-w-md w-full"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="glass rounded-[32px] p-8 max-w-lg w-full relative overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-6">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+
+              <div className="flex items-center justify-between mb-8 relative z-10">
                 <div>
-                  <h2 className="text-xl font-bold">Assign Joki</h2>
-                  <p className="text-sm text-muted mt-1">Pilih joki untuk order {assignModal}</p>
+                  <h2 className="text-xl font-black tracking-tight">Assign Elite Talent</h2>
+                  <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-1">Select the best joki for Order Entity</p>
                 </div>
-                <button onClick={() => setAssignModal(null)} className="p-2 hover:bg-surface-2 rounded-lg transition-colors">
+                <button onClick={() => setAssignModal(null)} className="w-10 h-10 flex items-center justify-center bg-surface-2 border border-border rounded-xl hover:bg-surface-3 transition-colors">
                   <X className="w-5 h-5 text-muted" />
                 </button>
               </div>
 
-              <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar relative z-10">
                 {jokiList.filter((j) => j.is_available).map((joki) => (
                   <button
                     key={joki.id as string}
                     onClick={() => handleAssign(assignModal!, joki.id as string)}
                     disabled={assigning === assignModal}
-                    className="w-full flex items-center gap-4 p-4 bg-surface-2 rounded-xl border border-border hover:border-primary/30 transition-colors text-left disabled:opacity-50"
+                    className="w-full flex items-center gap-4 p-4 bg-surface-2 border border-border/50 rounded-[20px] hover:border-primary/50 hover:bg-primary/5 transition-all group disabled:opacity-50"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-sm font-bold">
-                      {(joki.name as string)?.charAt(0)}
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent-green p-0.5 shadow-lg group-hover:rotate-3 transition-transform">
+                        <div className="w-full h-full rounded-xl bg-surface-1 flex items-center justify-center text-base font-black text-foreground uppercase">
+                          {(joki.name as string)?.charAt(0)}
+                        </div>
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-surface-2 shadow-glow shadow-green-500" />
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{joki.name as string}</p>
-                      <p className="text-xs text-muted">{((joki.skills as string[]) || []).join(', ')}</p>
+
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-black group-hover:text-primary-light transition-colors">{joki.name as string}</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {((joki.skills as string[]) || []).slice(0, 2).map((s, idx) => (
+                          <span key={idx} className="text-[8px] font-black uppercase text-muted bg-surface-1 px-1.5 py-0.5 rounded border border-border/50">{s}</span>
+                        ))}
+                      </div>
                     </div>
+
                     <div className="text-right">
-                      <p className="text-xs text-yellow-400">★ {joki.rating as number}</p>
-                      <p className="text-xs text-muted">{joki.total_completed as number} done</p>
+                      <div className="flex items-center justify-end gap-1 text-yellow-400">
+                        <span className="text-[10px] font-black">★</span>
+                        <span className="text-[10px] font-black">{joki.rating as number}</span>
+                      </div>
+                      <p className="text-[9px] font-bold text-muted uppercase mt-0.5">{joki.total_completed as number} Done</p>
                     </div>
                   </button>
                 ))}
+
                 {jokiList.filter(j => j.is_available).length === 0 && (
-                  <div className="text-center py-8 text-muted">
-                    <User className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Tidak ada joki tersedia saat ini</p>
+                  <div className="text-center py-12 glass rounded-3xl border-dashed border-2 border-border/50">
+                    <User className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                    <p className="text-xs font-black uppercase tracking-widest text-muted">No Agents Available</p>
+                    <p className="text-[10px] text-muted/60 mt-1">Check joki status or add a new joki to the network.</p>
                   </div>
                 )}
               </div>
 
-              <button
-                onClick={() => setAssignModal(null)}
-                className="w-full mt-4 px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm hover:border-primary/30 transition-colors"
-              >
-                Batal
-              </button>
+              <div className="mt-8 flex gap-3 relative z-10">
+                <button
+                  onClick={() => setAssignModal(null)}
+                  className="flex-1 px-4 py-3 bg-surface-2 border border-border rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-surface-3 transition-all"
+                >
+                  Cancel Operation
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* =============================================
+          SET QUOTE MODAL (NEW)
+          ============================================= */}
+      <AnimatePresence>
+        {quoteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4"
+            onClick={() => setQuoteModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="glass rounded-[32px] p-8 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold">Tentukan Harga Final</h2>
+                <button onClick={() => setQuoteModal(null)} className="p-2 hover:bg-surface-2 rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl">
+                  <p className="text-xs text-muted uppercase font-bold mb-1">Estimasi Awal</p>
+                  <p className="text-xl font-bold">{formatCurrency(Number(quoteModal.price))}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Harga Final (IDR)</label>
+                  <input
+                    type="number"
+                    value={quotePrice}
+                    onChange={(e) => setQuotePrice(e.target.value)}
+                    placeholder="Masukkan harga deal..."
+                    className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground font-bold text-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Tingkat Kesulitan</label>
+                  <select
+                    value={quoteDifficulty}
+                    onChange={(e) => setQuoteDifficulty(e.target.value)}
+                    className="w-full px-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground"
+                  >
+                    <option value="EASY">Mudah</option>
+                    <option value="MEDIUM">Sedang</option>
+                    <option value="HARD">Sulit</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setQuoteModal(null)}
+                    className="flex-1 px-4 py-3 bg-surface-2 border border-border rounded-xl text-sm font-bold"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSetQuote}
+                    disabled={submittingQuote || !quotePrice}
+                    className="flex-[2] px-6 py-3 bg-primary text-white rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {submittingQuote ? 'Menyimpan...' : 'Kirim Penawaran'}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -620,12 +782,12 @@ export default function OrderManagementPage() {
 
                       <div className="bg-surface-2 rounded-xl p-4 border border-border">
                         <div className="flex items-center gap-2 text-muted text-xs mb-2">
-                          <FileText className="w-3.5 h-3.5" />
-                          Detail
+                          <Zap className="w-3.5 h-3.5" />
+                          Urgensi & Jurnal
                         </div>
-                        <p className="font-medium text-sm">Halaman: {detailModal.pages != null ? String(detailModal.pages) : '-'}</p>
+                        <p className="font-medium text-sm">{String(detailModal.urgency_level || 'STANDAR')}</p>
+                        <p className="text-xs text-muted">Jurnal: {detailModal.has_journal === true ? 'Ada' : detailModal.has_journal === false ? 'Tidak Ada' : '-'}</p>
                         <p className="text-xs text-muted">Difficulty: {String(detailModal.difficulty || '-')}</p>
-                        <p className="text-xs text-muted">Revisi tersisa: {String(detailModal.revisions_left ?? '-')}</p>
                       </div>
                     </div>
 

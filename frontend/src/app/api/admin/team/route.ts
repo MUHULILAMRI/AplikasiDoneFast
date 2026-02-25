@@ -14,7 +14,17 @@ export async function GET(req: NextRequest) {
     const jokiMembers = await prisma.jokiMember.findMany({
       include: {
         user: { select: { name: true, email: true, avatar: true, phone: true } },
-        _count: { select: { orders: true } },
+        _count: {
+          select: {
+            orders: {
+              where: {
+                status: {
+                  notIn: ['COMPLETED', 'CANCELLED']
+                }
+              }
+            }
+          }
+        },
       },
       orderBy: { rating: 'desc' },
     });

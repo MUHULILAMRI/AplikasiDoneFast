@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     // Keyword-based recommendation engine
     const keywordMap: Record<string, string[]> = {
-      AKADEMIK: ['skripsi', 'tesis', 'makalah', 'tugas', 'essay', 'jurnal', 'paper', 'laporan', 'bab', 'proposal'],
+      AKADEMIK: ['skripsi', 'makalah', 'tugas', 'essay', 'jurnal', 'paper', 'laporan', 'bab', 'proposal'],
       CODING: ['coding', 'web', 'app', 'python', 'javascript', 'react', 'api', 'database', 'programming', 'software'],
       ARSITEKTUR: ['autocad', 'arsitektur', 'desain', 'denah', '3d', 'rendering', 'bangunan', 'interior', 'revit'],
       KONSULTASI: ['konsultasi', 'bimbingan', 'mentor', 'review', 'feedback', 'coaching'],

@@ -197,11 +197,11 @@ export default function OrdersPage() {
                                         <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2">
                                             <p className="text-sm font-bold text-accent-green">{formatCurrency(order.price)}</p>
                                             <div className="flex gap-2">
-                                                {order.joki && !['COMPLETED', 'CANCELLED', 'PENDING_PAYMENT'].includes(order.status) && (
+                                                {!['CANCELLED'].includes(order.status) && (
                                                     <Link
                                                         href={`/orders/${order.id}/chat`}
                                                         className="relative p-2 rounded-lg bg-surface-2 border border-border hover:border-primary/30 transition-colors"
-                                                        title="Chat Joki"
+                                                        title="Chat Admin/Joki"
                                                     >
                                                         <MessageSquare className="w-4 h-4 text-primary-light" />
                                                         {(unreadCounts[order.id] || 0) > 0 && (

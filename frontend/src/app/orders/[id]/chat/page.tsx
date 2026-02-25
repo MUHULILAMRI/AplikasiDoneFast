@@ -119,7 +119,7 @@ export default function OrderChatPage() {
 
     // Determine the "other party" name
     const otherParty = user?.role === 'customer'
-        ? order?.joki?.name || 'Joki'
+        ? order?.joki?.name || 'Admin/Support'
         : order?.user?.name || 'Customer';
 
     // Group messages by date
@@ -229,8 +229,8 @@ export default function OrderChatPage() {
                                         )}
 
                                         <div className={`max-w-[75%] ${isMe
-                                                ? 'bg-gradient-to-r from-primary to-primary-light text-white rounded-2xl rounded-br-md'
-                                                : 'bg-surface-2 border border-border rounded-2xl rounded-bl-md'
+                                            ? 'bg-gradient-to-r from-primary to-primary-light text-white rounded-2xl rounded-br-md'
+                                            : 'bg-surface-2 border border-border rounded-2xl rounded-bl-md'
                                             } px-4 py-2.5`}>
                                             {/* Sender name for first message in group */}
                                             {showAvatar && !isMe && (

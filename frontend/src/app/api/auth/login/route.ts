@@ -30,8 +30,11 @@ export async function POST(req: NextRequest) {
     // Verify password
     const isValid = await verifyPassword(password, user.password_hash);
     if (!isValid) {
+      console.warn(`[LOGIN] Password verification failed for user: ${email}`);
       return apiError('Email atau password salah', 401);
     }
+
+    console.log(`[LOGIN] User ${email} authenticated successfully. Generating token...`);
 
     // Generate JWT
     const token = await generateToken({

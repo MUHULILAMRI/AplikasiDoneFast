@@ -8,6 +8,7 @@ import {
   Menu, X, Bell, MessageCircle, ChevronDown, LogOut,
   LayoutDashboard, Settings, ShoppingBag, Check, BellOff,
   Package, FileCheck, AlertCircle, Clock, CreditCard, Tag,
+  MessageSquare,
 } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { apiGetNotifications, apiMarkNotificationRead } from '@/lib/api';
@@ -208,8 +209,12 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-white text-lg group-hover:scale-110 transition-transform">
-              DF
+            <div className="relative w-10 h-10 overflow-hidden rounded-xl">
+              <img
+                src="/logo.png"
+                alt="DoneFast Logo"
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+              />
             </div>
             <span className="text-xl font-bold gradient-text hidden sm:block">
               DoneFast
@@ -325,7 +330,7 @@ export default function Navbar() {
                 <Link
                   href="/chat"
                   className="relative p-2 rounded-xl hover:bg-surface-2 transition-colors"
-                  title="Chat AI Assistant"
+                  title="Tanya AI Assistant (FAQ)"
                 >
                   <MessageCircle className="w-5 h-5 text-muted" />
                 </Link>
@@ -373,6 +378,9 @@ export default function Navbar() {
                           </Link>
                           <Link href={`${dashboardPath}/settings`} onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-muted hover:text-foreground hover:bg-surface-2 transition-colors">
                             <Settings className="w-4 h-4" /> Pengaturan
+                          </Link>
+                          <Link href="/orders" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-primary-light hover:text-primary hover:bg-primary/5 transition-colors">
+                            <MessageSquare className="w-4 h-4" /> Chat dengan Joki
                           </Link>
                         </div>
                         <div className="border-t border-border py-1">
@@ -473,6 +481,9 @@ export default function Navbar() {
                   </Link>
                   <Link href={`${dashboardPath}/settings`} onClick={() => setMobileOpen(false)} className="flex items-center gap-3 py-2.5 text-sm text-muted hover:text-foreground transition-colors">
                     <Settings className="w-4 h-4" /> Pengaturan
+                  </Link>
+                  <Link href="/orders" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 py-2.5 text-sm font-medium text-primary-light hover:text-primary transition-colors">
+                    <MessageSquare className="w-4 h-4" /> Chat dengan Joki
                   </Link>
 
                   <hr className="border-border" />

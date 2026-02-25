@@ -57,7 +57,6 @@ export default function TestimonialsSection() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">{testimonial.name}</p>
-                  <p className="text-xs text-muted">{testimonial.university}</p>
                 </div>
               </div>
             </motion.div>
