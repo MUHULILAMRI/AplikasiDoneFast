@@ -85,7 +85,7 @@ export default function ServicesSection() {
             >
               <Link
                 href={`/marketplace?category=${cat.id}`}
-                className="group block glass rounded-2xl p-8 hover:border-primary/30 transition-all duration-300 hover:scale-[1.02]"
+                className="group block glass rounded-2xl p-8 card-hover"
               >
                 <div className={`w-14 h-14 rounded-2xl ${cat.bgColor} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
                   <cat.icon className={`w-7 h-7 bg-gradient-to-r ${cat.color} bg-clip-text`} style={{ color: 'inherit' }} />

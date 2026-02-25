@@ -17,12 +17,16 @@ export default function ReviewsPage() {
     async function load() {
       const res = await apiJokiDashboard();
       if (res.success) {
-        const d = res.data as Record<string, unknown>;
-        setAvgRating(Number(d.rating ?? 0));
-        setTotalReviews(Number(d.total_reviews ?? 0));
-        if (d.reviews) setReviews(d.reviews as Record<string, unknown>[]);
+        const data = res.data as any;
+        const stats = data.stats || {};
+        const profile = data.profile || {};
+
+        setAvgRating(Number(data.rating ?? profile.rating ?? 0));
+        setTotalReviews(Number(data.total_reviews ?? stats.total_reviews ?? 0));
+        if (data.reviews) setReviews(data.reviews as Record<string, unknown>[]);
+
         // Estimate star distribution
-        const total = Number(d.total_reviews ?? 0);
+        const total = Number(data.total_reviews ?? stats.total_reviews ?? 0) || 1;
         setFiveStars(Math.round(total * 0.84));
         setFourStars(Math.round(total * 0.13));
         setThreeStars(Math.round(total * 0.03));

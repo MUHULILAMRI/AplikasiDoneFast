@@ -41,6 +41,7 @@ function OrderForm() {
             image: s.image as string | undefined,
             features: s.features as string[],
             is_popular: s.is_popular as boolean,
+            is_active: s.is_active as boolean,
           });
           loaded = true;
         }
@@ -48,8 +49,8 @@ function OrderForm() {
       if (!loaded) {
         // Fallback: load first service only if no specific service was loaded
         const all = await apiGetServices();
-        if (all.success && (all.data as unknown[]).length > 0) {
-          const s = (all.data as Record<string, unknown>[])[0];
+        if (all.success && (all.data as any).services && (all.data as any).services.length > 0) {
+          const s = (all.data as any).services[0];
           setService({
             id: s.id as string,
             name: s.name as string,
@@ -62,6 +63,7 @@ function OrderForm() {
             image: s.image as string | undefined,
             features: s.features as string[],
             is_popular: s.is_popular as boolean,
+            is_active: s.is_active as boolean,
           });
         }
       }
@@ -115,24 +117,53 @@ function OrderForm() {
   const handleSubmitOrder = async () => {
     if (!service) return;
     setSubmitting(true);
-    const deadline = new Date();
-    deadline.setDate(deadline.getDate() + formData.deadline_days);
-    const res = await apiCreateOrder({
-      service_id: service.id,
-      title: formData.title,
-      description: formData.description,
-      requirements: formData.requirements || '-',
-      pages: formData.pages,
-      deadline: deadline.toISOString(),
-      voucher_code: formData.voucher || undefined,
-    });
-    if (res.success) {
-      const order = res.data as Record<string, unknown>;
-      window.location.href = `/checkout?order_id=${order.id}`;
-    } else {
-      alert((res as { error: string }).error || 'Gagal membuat order');
+
+    try {
+      // 1. Upload Files first
+      const uploadedFileUrls: string[] = [];
+      if (formData.files.length > 0) {
+        for (const file of formData.files) {
+          const uploadData = new FormData();
+          uploadData.append('file', file);
+
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            body: uploadData,
+          });
+          const uploadJson = await uploadRes.json();
+          if (uploadJson.success) {
+            uploadedFileUrls.push(uploadJson.data.url);
+          }
+        }
+      }
+
+      // 2. Create Order
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + formData.deadline_days);
+
+      const res = await apiCreateOrder({
+        service_id: service.id,
+        title: formData.title,
+        description: formData.description,
+        requirements: formData.requirements || '-',
+        pages: formData.pages,
+        deadline: deadline.toISOString(),
+        files: uploadedFileUrls, // Pass the array of URLs
+        voucher_code: formData.voucher || undefined,
+      });
+
+      if (res.success) {
+        const order = res.data as Record<string, unknown>;
+        window.location.href = `/checkout?order_id=${order.id}`;
+      } else {
+        alert((res as { error: string }).error || 'Gagal membuat order');
+      }
+    } catch (err) {
+      console.error('Order Submission Error:', err);
+      alert('Terjadi kesalahan saat memproses order');
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   if (loadingService || !service) {

@@ -30,9 +30,38 @@ export default function UploadPage() {
     load();
   }, []);
 
-  const simulateUpload = () => {
-    setFiles(prev => [...prev, `hasil_${prev.length + 1}.pdf`]);
-  };
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    setIsSubmitting(true);
+    const newFiles = Array.from(selectedFiles);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of newFiles) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Upload failed');
+
+        uploadedUrls.push(data.url);
+      }
+
+      setFiles(prev => [...prev, ...uploadedUrls]);
+    } catch (err: any) {
+      console.error('Upload result error:', err);
+      alert('Gagal upload file: ' + (err.message || 'Terjadi kesalahan'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!selectedOrder) {
@@ -53,6 +82,7 @@ export default function UploadPage() {
       setSubmitted(true);
       setPendingUploads((prev) => prev.filter((o) => o.id !== selectedOrder));
       setSelectedOrder('');
+      setFiles([]);
     } catch (error) {
       console.error(error);
       alert('Terjadi kesalahan saat mengirim hasil');
@@ -104,11 +134,10 @@ export default function UploadPage() {
             <button
               key={order.id as string}
               onClick={() => setSelectedOrder(order.id as string)}
-              className={`w-full p-4 rounded-xl border text-left transition-all ${
-                selectedOrder === order.id
-                  ? 'border-accent bg-accent/5'
-                  : 'border-border bg-surface-2 hover:border-primary/20'
-              }`}
+              className={`w-full p-4 rounded-xl border text-left transition-all ${selectedOrder === order.id
+                ? 'border-accent bg-accent/5'
+                : 'border-border bg-surface-2 hover:border-primary/20'
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -119,9 +148,8 @@ export default function UploadPage() {
                   <p className="text-sm font-medium">{order.title as string}</p>
                   <p className="text-xs text-muted mt-1">👤 {(order.customer as Record<string, unknown>)?.name as string ?? 'Customer'} • ⏰ Deadline: {order.deadline ? formatDate(order.deadline as string) : '-'}</p>
                 </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  selectedOrder === order.id ? 'border-accent bg-accent' : 'border-muted'
-                }`}>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedOrder === order.id ? 'border-accent bg-accent' : 'border-muted'
+                  }`}>
                   {selectedOrder === order.id && <CheckCircle className="w-3 h-3 text-white" />}
                 </div>
               </div>
@@ -138,14 +166,19 @@ export default function UploadPage() {
         className="glass rounded-2xl p-6"
       >
         <h3 className="font-semibold mb-4">Upload File</h3>
-        <div
-          onClick={simulateUpload}
-          className="border-2 border-dashed border-border rounded-2xl p-8 text-center cursor-pointer hover:border-accent/50 transition-colors"
-        >
+        <label className="border-2 border-dashed border-border rounded-2xl p-8 text-center cursor-pointer hover:border-accent/50 transition-colors block">
+          <input
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileChange}
+            disabled={!selectedOrder || isSubmitting}
+          />
           <Upload className="w-10 h-10 text-muted mx-auto mb-3" />
-          <p className="text-sm font-medium mb-1">Klik untuk upload atau drag & drop</p>
-          <p className="text-xs text-muted">PDF, DOCX, ZIP, RAR, dan file lainnya (maks. 50MB)</p>
-        </div>
+          <p className="text-sm font-medium mb-1">Klik untuk upload hasil pekerjaan</p>
+          <p className="text-xs text-muted">Bisa pilih beberapa file sekaligus (maks. 50MB per file)</p>
+          {!selectedOrder && <p className="text-xs text-red-400 mt-2">Pilih order terlebih dahulu!</p>}
+        </label>
 
         {files.length > 0 && (
           <div className="mt-4 space-y-2">
@@ -159,8 +192,10 @@ export default function UploadPage() {
                 <div className="flex items-center gap-3">
                   <FileText className="w-5 h-5 text-primary-light" />
                   <div>
-                    <p className="text-sm font-medium">{file}</p>
-                    <p className="text-xs text-muted">2.4 MB</p>
+                    <p className="text-sm font-medium truncate max-w-[200px]">
+                      {file.split('/').pop()?.split('-').slice(1).join('-') || file}
+                    </p>
+                    <p className="text-xs text-muted">Siap dikirim</p>
                   </div>
                 </div>
                 <button

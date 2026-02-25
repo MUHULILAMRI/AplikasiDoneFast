@@ -9,6 +9,7 @@ import {
   MessageCircle, Settings, Bell, Menu, X, LogOut, ChevronDown,
   TrendingUp, UserCheck, BarChart3
 } from 'lucide-react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 const sidebarLinks = [
   { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
@@ -30,9 +31,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
-      <aside className={`hidden lg:flex flex-col fixed left-0 top-0 h-full bg-surface border-r border-border z-40 transition-all duration-300 ${
-        sidebarOpen ? 'w-64' : 'w-20'
-      }`}>
+      <aside className={`hidden lg:flex flex-col fixed left-0 top-0 h-full bg-surface border-r border-border z-40 transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'
+        }`}>
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
           {sidebarOpen && (
@@ -59,11 +59,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                  isActive
-                    ? 'bg-primary/10 text-primary-light font-medium'
-                    : 'text-muted hover:text-foreground hover:bg-surface-2'
-                }`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isActive
+                  ? 'bg-primary/10 text-primary-light font-medium'
+                  : 'text-muted hover:text-foreground hover:bg-surface-2'
+                  }`}
               >
                 <link.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-primary-light' : ''}`} />
                 {sidebarOpen && <span>{link.label}</span>}
@@ -134,11 +133,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       key={link.href}
                       href={link.href}
                       onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                        isActive
-                          ? 'bg-primary/10 text-primary-light font-medium'
-                          : 'text-muted hover:text-foreground hover:bg-surface-2'
-                      }`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isActive
+                        ? 'bg-primary/10 text-primary-light font-medium'
+                        : 'text-muted hover:text-foreground hover:bg-surface-2'
+                        }`}
                     >
                       <link.icon className="w-5 h-5" />
                       <span>{link.label}</span>
@@ -163,18 +161,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </button>
 
           <div className="hidden lg:block">
+            <Breadcrumbs />
             <h2 className="text-sm font-medium text-muted">Admin Panel</h2>
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="relative p-2 rounded-xl hover:bg-surface-2 transition-colors">
+            <Link href="/dashboard/admin/notifications" className="relative p-2 rounded-xl hover:bg-surface-2 transition-colors">
               <Bell className="w-5 h-5 text-muted" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-            </button>
-            <button className="relative p-2 rounded-xl hover:bg-surface-2 transition-colors">
+            </Link>
+            <Link href="/dashboard/admin/chat" className="relative p-2 rounded-xl hover:bg-surface-2 transition-colors">
               <MessageCircle className="w-5 h-5 text-muted" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-accent-green rounded-full" />
-            </button>
+            </Link>
           </div>
         </header>
 

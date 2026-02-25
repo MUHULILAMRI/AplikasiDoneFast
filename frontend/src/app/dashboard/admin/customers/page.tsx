@@ -1,72 +1,70 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/utils';
 import {
-  Users, Search, Filter, ChevronDown, Mail,
-  Phone, MapPin, Calendar, ShoppingBag, Star,
-  MoreVertical, Eye, Ban, MessageSquare, TrendingUp,
-  UserPlus, Crown
+  Users, Search, Star,
+  Eye, TrendingUp,
+  UserPlus, Crown, MessageSquare,
+  Mail, Phone, Calendar, ChevronRight
 } from 'lucide-react';
+import { apiAdminCustomers } from '@/lib/api';
+import { TableSkeleton } from '@/components/ui/Skeleton';
+import EmptyState from '@/components/ui/EmptyState';
 
-const CUSTOMERS = [
-  {
-    id: '1', name: 'Ahmad Rizki', email: 'ahmad@gmail.com', phone: '081234567890',
-    university: 'Universitas Indonesia', avatar: '🧑‍🎓', joinDate: '2024-12-15',
-    totalOrders: 12, totalSpent: 3450000, lastOrder: '2025-01-10', status: 'active', rating: 4.8, tier: 'gold'
-  },
-  {
-    id: '2', name: 'Siti Nurhaliza', email: 'siti@gmail.com', phone: '081298765432',
-    university: 'ITB', avatar: '👩‍💻', joinDate: '2025-01-02',
-    totalOrders: 5, totalSpent: 1200000, lastOrder: '2025-01-12', status: 'active', rating: 4.5, tier: 'silver'
-  },
-  {
-    id: '3', name: 'Budi Santoso', email: 'budi@gmail.com', phone: '081345678901',
-    university: 'UGM', avatar: '🧑‍🔬', joinDate: '2024-10-20',
-    totalOrders: 25, totalSpent: 8750000, lastOrder: '2025-01-08', status: 'active', rating: 4.9, tier: 'platinum'
-  },
-  {
-    id: '4', name: 'Dian Permata', email: 'dian@gmail.com', phone: '081456789012',
-    university: 'Unpad', avatar: '👩‍🎓', joinDate: '2025-01-05',
-    totalOrders: 2, totalSpent: 450000, lastOrder: '2025-01-11', status: 'active', rating: 0, tier: 'bronze'
-  },
-  {
-    id: '5', name: 'Fajar Nugroho', email: 'fajar@gmail.com', phone: '081567890123',
-    university: 'Undip', avatar: '🧑‍💼', joinDate: '2024-08-15',
-    totalOrders: 30, totalSpent: 12500000, lastOrder: '2024-12-20', status: 'inactive', rating: 4.7, tier: 'platinum'
-  },
-  {
-    id: '6', name: 'Rina Sari', email: 'rina@gmail.com', phone: '081678901234',
-    university: 'ITS', avatar: '👩‍🔬', joinDate: '2024-11-10',
-    totalOrders: 8, totalSpent: 2800000, lastOrder: '2025-01-09', status: 'active', rating: 4.6, tier: 'gold'
-  },
-];
-
-const TIER_COLORS: Record<string, string> = {
-  bronze: 'from-amber-700 to-amber-500',
-  silver: 'from-gray-400 to-gray-300',
-  gold: 'from-yellow-500 to-amber-300',
-  platinum: 'from-indigo-400 to-purple-300',
+const TIER_COLORS = {
+  bronze: 'bg-orange-500/10 text-orange-400',
+  silver: 'bg-gray-400/10 text-gray-400',
+  gold: 'bg-yellow-500/10 text-yellow-400',
+  platinum: 'bg-purple-500/10 text-purple-400',
 };
 
-const TIER_LABELS: Record<string, string> = {
-  bronze: 'Bronze',
-  silver: 'Silver',
-  gold: 'Gold',
-  platinum: 'Platinum',
+const TIER_LABELS = {
+  bronze: 'Bronze Member',
+  silver: 'Silver Member',
+  gold: 'Gold Member',
+  platinum: 'Platinum Member',
 };
 
 export default function CustomersPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterTier, setFilterTier] = useState('all');
-  const [selectedCustomer, setSelectedCustomer] = useState<typeof CUSTOMERS[0] | null>(null);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterTier, setFilterTier] = useState<string>('all');
+  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
-  const filtered = CUSTOMERS.filter(c => {
-    const matchSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.email.includes(searchQuery);
-    const matchTier = filterTier === 'all' || c.tier === filterTier;
-    return matchSearch && matchTier;
+  useEffect(() => {
+    async function load() {
+      const res = await apiAdminCustomers();
+      if (res.success) {
+        setCustomers(res.data.customers);
+        setStats(res.data.stats);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const filteredCustomers = customers.filter(c => {
+    const matchesSearch = (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTier = filterTier === 'all' || c.tier?.toLowerCase() === filterTier.toLowerCase();
+    return matchesSearch && matchesTier;
   });
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Pelanggan</h1>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {[1, 2, 3, 4].map(i => <div key={i} className="glass h-24 rounded-2xl animate-pulse" />)}
+        </div>
+        <TableSkeleton rows={8} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -80,10 +78,10 @@ export default function CustomersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Pelanggan', value: '5,234', icon: Users, color: 'from-blue-500 to-indigo-500', change: '+12%' },
-          { label: 'Pelanggan Baru (Bulan ini)', value: '128', icon: UserPlus, color: 'from-green-500 to-emerald-500', change: '+8%' },
-          { label: 'Pelanggan Aktif', value: '3,456', icon: TrendingUp, color: 'from-purple-500 to-pink-500', change: '+5%' },
-          { label: 'Pelanggan Premium', value: '234', icon: Crown, color: 'from-yellow-500 to-amber-500', change: '+15%' },
+          { label: 'Total Pelanggan', value: stats?.total || 0, icon: Users, color: 'from-blue-500 to-indigo-500', change: 'Total' },
+          { label: 'Pelanggan Baru', value: stats?.new || 0, icon: UserPlus, color: 'from-green-500 to-emerald-500', change: 'Bulan ini' },
+          { label: 'Pelanggan Aktif', value: stats?.active || 0, icon: TrendingUp, color: 'from-purple-500 to-pink-500', change: 'Status' },
+          { label: 'Pelanggan Premium', value: stats?.premium || 0, icon: Crown, color: 'from-yellow-500 to-amber-500', change: 'Top Tier' },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -96,7 +94,7 @@ export default function CustomersPage() {
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
                 <stat.icon className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xs text-accent-green font-medium">{stat.change}</span>
+              <span className="text-[10px] text-muted font-medium uppercase">{stat.change}</span>
             </div>
             <p className="text-xl font-bold">{stat.value}</p>
             <p className="text-xs text-muted mt-1">{stat.label}</p>
@@ -111,9 +109,9 @@ export default function CustomersPage() {
           <input
             type="text"
             placeholder="Cari pelanggan..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-surface-2 border border-border rounded-xl text-sm placeholder:text-muted focus:outline-none focus:border-primary/50"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-surface-2 border border-border rounded-xl text-sm placeholder:text-muted focus:outline-none focus:border-primary/50 text-foreground"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -121,13 +119,12 @@ export default function CustomersPage() {
             <button
               key={tier}
               onClick={() => setFilterTier(tier)}
-              className={`px-4 py-2.5 rounded-xl text-sm transition-all ${
-                filterTier === tier
-                  ? 'bg-gradient-to-r from-primary to-primary-light text-white'
-                  : 'bg-surface-2 border border-border text-muted hover:border-primary/30'
-              }`}
+              className={`px-4 py-2.5 rounded-xl text-sm transition-all ${filterTier === tier
+                ? 'bg-gradient-to-r from-primary to-primary-light text-white'
+                : 'bg-surface-2 border border-border text-muted hover:border-primary/30'
+                }`}
             >
-              {tier === 'all' ? 'Semua' : TIER_LABELS[tier]}
+              {tier === 'all' ? 'Semua' : (TIER_LABELS[tier as keyof typeof TIER_LABELS] || tier)}
             </button>
           ))}
         </div>
@@ -140,75 +137,68 @@ export default function CustomersPage() {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Pelanggan</th>
-                <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Universitas</th>
                 <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Tier</th>
                 <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Orders</th>
                 <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Total Spent</th>
-                <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Rating</th>
-                <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Status</th>
-                <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Aksi</th>
+                <th className="px-6 py-4 text-xs font-medium text-muted uppercase">Terakhir Order</th>
+                <th className="px-6 py-4 text-xs font-medium text-muted uppercase text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((customer, i) => (
-                <motion.tr
-                  key={customer.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="border-b border-border/50 hover:bg-surface-2/50 transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-lg">
-                        {customer.avatar}
+            <tbody className="divide-y divide-border">
+              {filteredCustomers.length > 0 ? (
+                filteredCustomers.map((customer, i) => (
+                  <motion.tr
+                    key={customer.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="hover:bg-surface-2/50 transition-colors cursor-pointer group"
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-lg font-bold">
+                          {customer.avatar || '👤'}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm group-hover:text-primary-light transition-colors">{customer.name}</p>
+                          <p className="text-xs text-muted">{customer.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{customer.name}</p>
-                        <p className="text-xs text-muted">{customer.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase ${TIER_COLORS[customer.tier?.toLowerCase() as keyof typeof TIER_COLORS] || 'bg-gray-500/10 text-gray-400'}`}>
+                        {TIER_LABELS[customer.tier?.toLowerCase() as keyof typeof TIER_LABELS] || customer.tier}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-mono">{customer.totalOrders}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-accent-green">{formatCurrency(customer.totalSpent)}</td>
+                    <td className="px-6 py-4 text-sm text-muted">{customer.lastOrder}</td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button className="p-2 hover:bg-surface rounded-lg text-muted hover:text-foreground">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button className="p-2 hover:bg-surface rounded-lg text-muted hover:text-foreground">
+                          <MessageSquare className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
+                    </td>
+                  </motion.tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12">
+                    <EmptyState
+                      icon={Users}
+                      title="Tidak ada pelanggan"
+                      description={searchTerm ? `Pencarian "${searchTerm}" tidak menemukan hasil.` : "Belum ada pelanggan yang terdaftar."}
+                      actionLabel={searchTerm ? "Reset Pencarian" : undefined}
+                      onAction={() => setSearchTerm('')}
+                    />
                   </td>
-                  <td className="px-6 py-4 text-sm text-muted">{customer.university}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-gradient-to-r ${TIER_COLORS[customer.tier]} text-white`}>
-                      {TIER_LABELS[customer.tier]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium">{customer.totalOrders}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-accent-green">{formatCurrency(customer.totalSpent)}</td>
-                  <td className="px-6 py-4">
-                    {customer.rating > 0 ? (
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-                        <span className="text-sm font-medium">{customer.rating}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium ${
-                      customer.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-400'
-                    }`}>
-                      {customer.status === 'active' ? 'Aktif' : 'Tidak Aktif'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setSelectedCustomer(customer)}
-                        className="p-2 hover:bg-surface rounded-lg transition-colors"
-                      >
-                        <Eye className="w-4 h-4 text-muted" />
-                      </button>
-                      <button className="p-2 hover:bg-surface rounded-lg transition-colors">
-                        <MessageSquare className="w-4 h-4 text-muted" />
-                      </button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -225,12 +215,12 @@ export default function CustomersPage() {
           >
             <div className="text-center mb-6">
               <div className="w-16 h-16 rounded-full bg-surface-2 flex items-center justify-center text-3xl mx-auto mb-3">
-                {selectedCustomer.avatar}
+                {selectedCustomer.avatar || '👤'}
               </div>
               <h2 className="text-xl font-bold">{selectedCustomer.name}</h2>
-              <p className="text-sm text-muted">{selectedCustomer.university}</p>
-              <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase bg-gradient-to-r ${TIER_COLORS[selectedCustomer.tier]} text-white`}>
-                {TIER_LABELS[selectedCustomer.tier]} Member
+              <p className="text-sm text-muted">{selectedCustomer.university || 'Internal Member'}</p>
+              <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase ${TIER_COLORS[selectedCustomer.tier?.toLowerCase() as keyof typeof TIER_COLORS] || 'bg-gray-500/10 text-gray-400'}`}>
+                {TIER_LABELS[selectedCustomer.tier?.toLowerCase() as keyof typeof TIER_LABELS] || selectedCustomer.tier}
               </span>
             </div>
             <div className="space-y-3">
@@ -253,7 +243,7 @@ export default function CustomersPage() {
                 </div>
                 <div className="text-center p-3 bg-surface-2 rounded-xl">
                   <p className="text-lg font-bold text-accent-green">{formatCurrency(selectedCustomer.totalSpent)}</p>
-                  <p className="text-[10px] text-muted">Total Spent</p>
+                  <p className="text-[10px] text-muted">Spent</p>
                 </div>
                 <div className="text-center p-3 bg-surface-2 rounded-xl">
                   <p className="text-lg font-bold flex items-center justify-center gap-1">
@@ -266,7 +256,7 @@ export default function CustomersPage() {
             </div>
             <button
               onClick={() => setSelectedCustomer(null)}
-              className="w-full mt-6 py-3 bg-surface-2 border border-border rounded-xl hover:border-primary/30 text-sm"
+              className="w-full mt-6 py-3 bg-surface-2 border border-border rounded-xl hover:border-primary/30 text-sm font-medium transition-colors"
             >
               Tutup
             </button>

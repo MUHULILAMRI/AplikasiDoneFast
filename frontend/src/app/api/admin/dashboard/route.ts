@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       pendingOrders,
       inProgressOrders,
       completedOrders,
+      revisionOrders,
       cancelledOrders,
       totalJoki,
       recentOrders,
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
       prisma.order.count({ where: { status: { in: ['PENDING_PAYMENT', 'PAID'] } } }),
       prisma.order.count({ where: { status: 'IN_PROGRESS' } }),
       prisma.order.count({ where: { status: 'COMPLETED' } }),
+      prisma.order.count({ where: { status: 'REVISION' } }),
       prisma.order.count({ where: { status: 'CANCELLED' } }),
       prisma.jokiMember.count(),
       prisma.order.findMany({
@@ -82,6 +84,7 @@ export async function GET(req: NextRequest) {
         pending: pendingOrders,
         in_progress: inProgressOrders,
         completed: completedOrders,
+        revision: revisionOrders,
         cancelled: cancelledOrders,
       },
       recent_orders: recentOrders,

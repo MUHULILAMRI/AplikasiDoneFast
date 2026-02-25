@@ -26,6 +26,7 @@
   --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
 }
 
 * {
@@ -79,9 +80,12 @@ body {
 
 /* Pulse animation */
 @keyframes pulse-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
   }
+
   50% {
     box-shadow: 0 0 40px rgba(99, 102, 241, 0.5), 0 0 80px rgba(99, 102, 241, 0.2);
   }
@@ -93,9 +97,279 @@ body {
 
 /* Grid background pattern */
 .bg-grid {
-  background-image: 
+  background-image:
     linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
   background-size: 64px 64px;
 }
 
+/* ============================
+   Noise texture overlay
+   ============================ */
+.bg-noise::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ============================
+   Animated gradient border 
+   ============================ */
+.border-gradient {
+  position: relative;
+  border: 1px solid transparent;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(135deg, #6366f1, #22d3ee, #10b981) border-box;
+}
+
+.border-gradient-animated {
+  position: relative;
+  border: 1px solid transparent;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(var(--gradient-angle, 135deg), #6366f1, #22d3ee, #10b981) border-box;
+  animation: rotate-gradient 4s linear infinite;
+}
+
+@keyframes rotate-gradient {
+  to {
+    --gradient-angle: 495deg;
+  }
+}
+
+@property --gradient-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 135deg;
+}
+
+/* ============================
+   Shimmer text effect
+   ============================ */
+.text-shimmer {
+  background: linear-gradient(90deg, #6366f1 0%, #22d3ee 40%, #10b981 60%, #6366f1 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* ============================
+   Reveal animations
+   ============================ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.animate-fadeInLeft {
+  animation: fadeInLeft 0.5s ease-out forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.4s ease-out forwards;
+}
+
+/* Stagger children */
+.stagger-children>* {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.stagger-children>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children>*:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-children>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children>*:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stagger-children>*:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger-children>*:nth-child(6) {
+  animation-delay: 0.3s;
+}
+
+/* ============================
+   Card hover enhancements
+   ============================ */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    0 0 30px rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* ============================
+   Animated gradient mesh / orbs
+   ============================ */
+@keyframes float-orb-1 {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  25% {
+    transform: translate(30px, -40px) scale(1.1);
+  }
+
+  50% {
+    transform: translate(-20px, -60px) scale(0.95);
+  }
+
+  75% {
+    transform: translate(40px, -20px) scale(1.05);
+  }
+}
+
+@keyframes float-orb-2 {
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  25% {
+    transform: translate(-40px, 30px) scale(1.05);
+  }
+
+  50% {
+    transform: translate(30px, 50px) scale(1.1);
+  }
+
+  75% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+}
+
+.animate-float-1 {
+  animation: float-orb-1 15s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-orb-2 18s ease-in-out infinite;
+}
+
+/* ============================
+   Mobile touch-friendly
+   ============================ */
+@media (max-width: 768px) {
+
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* safe area for notch devices */
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Remove tap highlight and double-tap delay */
+* {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ============================
+   Enhanced skeleton loading
+   ============================ */
+@keyframes skeleton-pulse {
+
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.animate-pulse {
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+}
+
+/* ============================
+   NProgress-style loading bar
+   ============================ */
+.loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #22d3ee, #10b981);
+  z-index: 99999;
+  transition: width 0.3s ease;
+}

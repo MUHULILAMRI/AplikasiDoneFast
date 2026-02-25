@@ -6,18 +6,21 @@ import HowItWorksSection from '@/components/landing/HowItWorksSection';
 import TestimonialsSection from '@/components/landing/TestimonialsSection';
 import StatsSection from '@/components/landing/StatsSection';
 import CTASection from '@/components/landing/CTASection';
+import PageTransition from '@/components/PageTransition';
 
 export default function Home() {
   return (
-    <main>
-      <Navbar />
-      <HeroSection />
-      <ServicesSection />
-      <HowItWorksSection />
-      <StatsSection />
-      <TestimonialsSection />
-      <CTASection />
-      <Footer />
-    </main>
+    <PageTransition>
+      <main>
+        <Navbar />
+        <HeroSection />
+        <ServicesSection />
+        <HowItWorksSection />
+        <StatsSection />
+        <TestimonialsSection />
+        <CTASection />
+        <Footer />
+      </main>
+    </PageTransition>
   );
 }

@@ -34,6 +34,7 @@ model User {
   transactions  Transaction[]
   referrals     Referral[]    @relation("referrer")
   referred_by   Referral?     @relation("referred")
+  reviews       Review[]
 
   @@map("users")
 }
@@ -108,6 +109,7 @@ model Order {
   voucher        Voucher?      @relation(fields: [voucher_id], references: [id])
   messages       ChatMessage[]
   transactions   Transaction[]
+  review         Review?
 
   @@map("orders")
 }
@@ -145,6 +147,7 @@ model JokiMember {
 
   user            User     @relation(fields: [user_id], references: [id])
   orders          Order[]
+  reviews         Review[]
 
   @@map("joki_members")
 }
@@ -193,6 +196,8 @@ enum PaymentMethod {
   QRIS
   DANA
   OVO
+  GOPAY
+  SHOPEEPAY
   BANK_TRANSFER
   EWALLET
 }
@@ -266,6 +271,25 @@ model Referral {
   referred    User     @relation("referred", fields: [referred_id], references: [id])
 
   @@map("referrals")
+}
+
+// ============================================
+// Review Model
+// ============================================
+model Review {
+  id         String   @id @default(cuid())
+  order_id   String   @unique
+  user_id    String
+  joki_id    String
+  rating     Int      @default(5)
+  comment    String?
+  created_at DateTime @default(now())
+
+  order      Order    @relation(fields: [order_id], references: [id])
+  user       User     @relation(fields: [user_id], references: [id])
+  joki       JokiMember @relation(fields: [joki_id], references: [id])
+
+  @@map("reviews")
 }
 
 // ============================================

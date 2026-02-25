@@ -7,11 +7,11 @@ import { ArrowRight, Sparkles, Zap, Shield } from 'lucide-react';
 export default function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-grid">
-      {/* Background effects */}
+      {/* Background effects - animated floating orbs */}
       <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[128px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-accent-green/5 rounded-full blur-[100px]" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[128px] animate-float-1" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-[128px] animate-float-2" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent-green/5 rounded-full blur-[100px] animate-float-1" style={{ animationDelay: '3s' }} />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 text-center">
@@ -20,11 +20,11 @@ export default function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary-light text-sm mb-8"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-sm mb-8"
         >
-          <Sparkles className="w-4 h-4" />
-          <span>Platform Jasa Digital #1 Indonesia</span>
-          <Sparkles className="w-4 h-4" />
+          <Sparkles className="w-4 h-4 text-primary-light" />
+          <span className="text-shimmer font-medium">Platform Jasa Digital #1 Indonesia</span>
+          <Sparkles className="w-4 h-4 text-primary-light" />
         </motion.div>
 
         {/* Main Heading */}
@@ -33,6 +33,7 @@ export default function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
           className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6"
+          style={{ fontFamily: 'var(--font-display)' }}
         >
           Tugas Selesai,{' '}
           <span className="gradient-text">Lebih Cepat</span>
@@ -47,7 +48,7 @@ export default function HeroSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="text-lg sm:text-xl text-muted max-w-2xl mx-auto mb-10"
         >
-          Marketplace jasa akademik & teknologi terpercaya. Dari makalah hingga 
+          Marketplace jasa akademik & teknologi terpercaya. Dari makalah hingga
           website, dikerjakan oleh tim profesional dengan garansi kualitas.
         </motion.p>
 
@@ -109,7 +110,7 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
-              className="glass rounded-2xl p-6 hover:scale-105 transition-transform"
+              className="glass rounded-2xl p-6 card-hover"
             >
               <div className={`text-3xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
                 {stat.value}
@@ -126,7 +127,7 @@ export default function HeroSection() {
 function MessageCircleIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+      <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
     </svg>
   );
 }

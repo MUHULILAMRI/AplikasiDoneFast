@@ -126,28 +126,66 @@ export default function Navbar() {
     setNotifLoading(false);
   }, [isAuthenticated]);
 
-  // Poll notifications every 30s
+  // Poll notifications every 30s — only when tab is visible
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (!interval) interval = setInterval(fetchNotifications, 30000);
+    };
+    const stopPolling = () => {
+      if (interval) { clearInterval(interval); interval = null; }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchNotifications(); // refresh on tab focus
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [isAuthenticated, fetchNotifications]);
 
   const handleMarkAllRead = async () => {
-    const res = await apiMarkNotificationRead(notifications.filter(n => !n.is_read).map(n => n.id));
-    if (res.success) {
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+    // Optimistic update
+    const prevNotifs = notifications;
+    const prevCount = unreadCount;
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+
+    const res = await apiMarkNotificationRead(prevNotifs.filter(n => !n.is_read).map(n => n.id));
+    if (!res.success) {
+      // Revert on failure
+      setNotifications(prevNotifs);
+      setUnreadCount(prevCount);
     }
   };
 
   const handleMarkOneRead = async (id: string) => {
-    await apiMarkNotificationRead([id]);
+    // Optimistic update
+    const prevNotifs = notifications;
+    const prevCount = unreadCount;
     setNotifications(prev =>
       prev.map(n => (n.id === id ? { ...n, is_read: true } : n))
     );
     setUnreadCount(prev => Math.max(0, prev - 1));
+
+    const res = await apiMarkNotificationRead([id]);
+    if (!res.success) {
+      setNotifications(prevNotifs);
+      setUnreadCount(prevCount);
+    }
   };
 
   const handleLogout = () => {

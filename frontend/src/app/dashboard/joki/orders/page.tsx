@@ -6,10 +6,22 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { apiGetOrders, apiJokiUpdateProgress } from '@/lib/api';
+import { Skeleton } from '@/components/ui/Skeleton';
+import EmptyState from '@/components/ui/EmptyState';
 import {
-  ClipboardList, Clock, CheckCircle, Play, AlertCircle,
-  Timer, Eye, MessageSquare, Upload, ChevronDown,
-  Filter, Search, XCircle, RotateCcw, Sliders, Send
+  Clock,
+  AlertCircle,
+  Play,
+  CheckCircle,
+  RotateCcw,
+  XCircle,
+  Timer,
+  Sliders,
+  Upload,
+  MessageSquare,
+  ClipboardList,
+  Send,
+  Search
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -31,6 +43,7 @@ export default function JokiOrdersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [orders, setOrders] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [progressModal, setProgressModal] = useState<{ id: string; title: string; orderNumber: string; progress: number } | null>(null);
   const [progValue, setProgValue] = useState(0);
@@ -45,6 +58,7 @@ export default function JokiOrdersPage() {
         const d = res.data as Record<string, unknown>;
         setOrders((d.data ?? d) as Record<string, unknown>[]);
       }
+      setLoading(false);
     }
     load();
   }, []);
@@ -149,136 +163,153 @@ export default function JokiOrdersPage() {
 
       {/* Order List */}
       <div className="space-y-4">
-        <AnimatePresence mode="popLayout">
-          {filtered.map((order, i) => {
-            const status = (order.status as string)?.toUpperCase();
-            const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
-            return (
-              <motion.div
-                key={order.id as string}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ delay: i * 0.05 }}
-                className="glass rounded-2xl p-6 hover:border-accent/20 border border-transparent transition-all cursor-pointer"
-                onClick={() => setSelectedOrder(order)}
-              >
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-mono text-xs text-muted">{(order.order_number as string) || (order.id as string)}</span>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusCfg.color}`}>
-                        {statusCfg.label}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
-                        order.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
-                          'bg-green-500/10 text-green-400'
-                        }`}>
-                        {order.priority === 'high' ? '🔥 Mendesak' : order.priority === 'medium' ? '⚡ Normal' : '🌿 Santai'}
-                      </span>
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="glass rounded-2xl p-6 h-48 animate-pulse" />
+          ))
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {filtered.length > 0 ? (
+              filtered.map((order, i) => {
+                const status = (order.status as string)?.toUpperCase();
+                const statusCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
+                return (
+                  <motion.div
+                    key={order.id as string}
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="glass rounded-2xl p-6 hover:border-accent/20 border border-transparent transition-all cursor-pointer"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-mono text-xs text-muted">{(order.order_number as string) || (order.id as string)}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${statusCfg.color}`}>
+                            {statusCfg.label}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${order.priority === 'high' ? 'bg-red-500/10 text-red-400' :
+                            order.priority === 'medium' ? 'bg-yellow-500/10 text-yellow-400' :
+                              'bg-green-500/10 text-green-400'
+                            }`}>
+                            {order.priority === 'high' ? '🔥 Mendesak' : order.priority === 'medium' ? '⚡ Normal' : '🌿 Santai'}
+                          </span>
+                        </div>
+                        <h3 className="font-semibold mb-1">{order.title as string}</h3>
+                        <p className="text-sm text-muted mb-3">{order.description as string}</p>
+                        <div className="flex items-center gap-4 text-xs text-muted">
+                          <span>👤 {(order.customer ?? (order.user as Record<string, unknown>)?.name ?? '') as string}</span>
+                          <span>📁 {(order.category ?? (order.service as Record<string, unknown>)?.category ?? '') as string}</span>
+                          <span className="flex items-center gap-1">
+                            <Timer className="w-3 h-3" />
+                            {order.deadline ? formatDate(order.deadline as string) : '-'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-lg font-bold text-accent-green">{formatCurrency((order.commission ?? order.price) as number)}</p>
+                        <p className="text-xs text-muted">Komisi kamu</p>
+                      </div>
                     </div>
-                    <h3 className="font-semibold mb-1">{order.title as string}</h3>
-                    <p className="text-sm text-muted mb-3">{order.description as string}</p>
-                    <div className="flex items-center gap-4 text-xs text-muted">
-                      <span>👤 {(order.customer ?? (order.user as Record<string, unknown>)?.name ?? '') as string}</span>
-                      <span>📁 {(order.category ?? (order.service as Record<string, unknown>)?.category ?? '') as string}</span>
-                      <span className="flex items-center gap-1">
-                        <Timer className="w-3 h-3" />
-                        {order.deadline ? formatDate(order.deadline as string) : '-'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-lg font-bold text-accent-green">{formatCurrency((order.commission ?? order.price) as number)}</p>
-                    <p className="text-xs text-muted">Komisi kamu</p>
-                  </div>
-                </div>
 
-                {status !== 'COMPLETED' && (
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-muted mb-1.5">
-                      <span>Progress</span>
-                      <span>{(order.progress as number) ?? 0}%</span>
-                    </div>
-                    <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${(order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
-                          (order.progress as number) >= 30 ? 'bg-gradient-to-r from-accent to-primary' :
-                            'bg-gradient-to-r from-yellow-500 to-orange-400'
-                          }`}
-                        style={{ width: `${(order.progress as number) ?? 0}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+                    {status !== 'COMPLETED' && (
+                      <div className="mt-4">
+                        <div className="flex justify-between text-xs text-muted mb-1.5">
+                          <span>Progress</span>
+                          <span>{(order.progress as number) ?? 0}%</span>
+                        </div>
+                        <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${(order.progress as number) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-400' :
+                              (order.progress as number) >= 30 ? 'bg-gradient-to-r from-accent to-primary' :
+                                'bg-gradient-to-r from-yellow-500 to-orange-400'
+                              }`}
+                            style={{ width: `${(order.progress as number) ?? 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
-                <div className="mt-4 flex gap-2">
-                  {status === 'PAID' && (
-                    <button
-                      onClick={() => handleStart(order.id as string)}
-                      disabled={updating === (order.id as string)}
-                      className="px-4 py-2 bg-gradient-to-r from-accent to-primary text-white rounded-xl text-xs font-medium hover:opacity-90 disabled:opacity-60"
-                    >
-                      {updating === (order.id as string) ? 'Memulai...' : 'Mulai Kerjakan'}
-                    </button>
-                  )}
-                  {status === 'IN_PROGRESS' && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openProgressModal(order); }}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
-                      >
-                        <Sliders className="w-3 h-3" />
-                        Update Progress
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); goToUpload(order.id as string); }}
-                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
-                      >
-                        <Upload className="w-3 h-3" />
-                        Upload Hasil
-                      </button>
-                      <Link
-                        href={`/orders/${order.id as string}/chat`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-4 py-2 bg-surface-2 border border-border rounded-xl text-xs hover:border-primary/30 flex items-center gap-1"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        Chat Customer
-                      </Link>
-                    </>
-                  )}
-                  {status === 'REVISION' && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); goToUpload(order.id as string); }}
-                        className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
-                      >
-                        <Upload className="w-3 h-3" />
-                        Upload Revisi
-                      </button>
-                      <Link
-                        href={`/orders/${order.id as string}/chat`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="px-4 py-2 bg-surface-2 border border-border rounded-xl text-xs hover:border-primary/30 flex items-center gap-1"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        Chat Customer
-                      </Link>
-                    </>
-                  )}
-                  {status === 'COMPLETED' && (
-                    <span className="px-4 py-2 bg-green-500/10 text-green-400 rounded-xl text-xs font-medium flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Selesai
-                    </span>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+                    <div className="mt-4 flex gap-2">
+                      {status === 'PAID' && (
+                        <button
+                          onClick={() => handleStart(order.id as string)}
+                          disabled={updating === (order.id as string)}
+                          className="px-4 py-2 bg-gradient-to-r from-accent to-primary text-white rounded-xl text-xs font-medium hover:opacity-90 disabled:opacity-60"
+                        >
+                          {updating === (order.id as string) ? 'Memulai...' : 'Mulai Kerjakan'}
+                        </button>
+                      )}
+                      {status === 'IN_PROGRESS' && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openProgressModal(order); }}
+                            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
+                          >
+                            <Sliders className="w-3 h-3" />
+                            Update Progress
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); goToUpload(order.id as string); }}
+                            className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
+                          >
+                            <Upload className="w-3 h-3" />
+                            Upload Hasil
+                          </button>
+                          <Link
+                            href={`/orders/${order.id as string}/chat`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-4 py-2 bg-surface-2 border border-border rounded-xl text-xs hover:border-primary/30 flex items-center gap-1"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            Chat Customer
+                          </Link>
+                        </>
+                      )}
+                      {status === 'REVISION' && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); goToUpload(order.id as string); }}
+                            className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-medium hover:opacity-90 flex items-center gap-1"
+                          >
+                            <Upload className="w-3 h-3" />
+                            Upload Revisi
+                          </button>
+                          <Link
+                            href={`/orders/${order.id as string}/chat`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-4 py-2 bg-surface-2 border border-border rounded-xl text-xs hover:border-primary/30 flex items-center gap-1"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            Chat Customer
+                          </Link>
+                        </>
+                      )}
+                      {status === 'COMPLETED' && (
+                        <span className="px-4 py-2 bg-green-500/10 text-green-400 rounded-xl text-xs font-medium flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Selesai
+                        </span>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })
+            ) : (
+              <EmptyState
+                icon={ClipboardList}
+                title="Antrean Kosong"
+                description={searchQuery ? `Tidak ada order yang cocok dengan pencarian "${searchQuery}".` : "Saat ini tidak ada order yang masuk ke antrean kamu."}
+                actionLabel={searchQuery ? "Reset Filter" : undefined}
+                onAction={() => { setSearchQuery(''); setStatusFilter('all'); }}
+              />
+            )}
+          </AnimatePresence>
+        )
+        }
       </div>
 
       {/* Order Detail Modal */}

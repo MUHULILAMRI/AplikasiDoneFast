@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -10,32 +10,45 @@ import {
   Star, Clock, CheckCircle, XCircle, Filter
 } from 'lucide-react';
 
-const MONTHLY_DATA = [
-  { month: 'Aug', orders: 180, revenue: 45000000, profit: 18000000, customers: 89 },
-  { month: 'Sep', orders: 210, revenue: 52000000, profit: 21000000, customers: 102 },
-  { month: 'Oct', orders: 245, revenue: 61000000, profit: 25000000, customers: 118 },
-  { month: 'Nov', orders: 280, revenue: 70000000, profit: 29000000, customers: 135 },
-  { month: 'Des', orders: 320, revenue: 82000000, profit: 34000000, customers: 156 },
-  { month: 'Jan', orders: 356, revenue: 89000000, profit: 37000000, customers: 178 },
-];
-
-const TOP_SERVICES = [
-  { name: 'Joki Skripsi', orders: 89, revenue: 35600000, pct: 40 },
-  { name: 'Tugas Coding', orders: 67, revenue: 20100000, pct: 23 },
-  { name: 'Joki Arsitektur', orders: 45, revenue: 13500000, pct: 15 },
-  { name: 'Konsultasi Akademik', orders: 34, revenue: 5100000, pct: 6 },
-  { name: 'Lainnya', orders: 121, revenue: 14700000, pct: 16 },
-];
-
-const TOP_JOKI = [
-  { name: 'Alex Coder', avatar: '👨‍💻', orders: 45, rating: 4.9, revenue: 22500000 },
-  { name: 'Sarah Writer', avatar: '👩‍🎓', orders: 38, rating: 4.8, revenue: 19000000 },
-  { name: 'Rizky Arch', avatar: '🧑‍🎨', orders: 32, rating: 4.7, revenue: 16000000 },
-];
+import { apiAdminReports } from '@/lib/api';
+import { StatsSkeleton } from '@/components/ui/Skeleton';
 
 export default function ReportsPage() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('monthly');
-  const maxRevenue = Math.max(...MONTHLY_DATA.map(d => d.revenue));
+
+  useEffect(() => {
+    async function load() {
+      const res = await apiAdminReports();
+      if (res.success) {
+        setData(res.data);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Laporan & Analitik</h1>
+          <p className="text-muted text-sm mt-1">Performa bisnis secara realtime.</p>
+        </div>
+        <StatsSkeleton />
+        <div className="glass h-64 rounded-2xl animate-pulse" />
+      </div>
+    );
+  }
+
+  const monthlyData = data?.monthlyData || [];
+  const topServices = data?.topServices || [];
+  const topJoki = data?.topJoki || [];
+  const statusSummary = data?.statusSummary || [];
+  const stats = data?.stats || {};
+
+  const maxRevenue = Math.max(...monthlyData.map((d: any) => d.revenue), 1000);
 
   return (
     <div className="space-y-6">
@@ -64,10 +77,10 @@ export default function ReportsPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Revenue Bulan Ini', value: formatCurrency(89000000), icon: DollarSign, color: 'from-green-500 to-emerald-500', change: '+8.5%', up: true },
-          { label: 'Total Orders', value: '356', icon: ShoppingBag, color: 'from-blue-500 to-indigo-500', change: '+11.2%', up: true },
-          { label: 'Customer Baru', value: '178', icon: Users, color: 'from-purple-500 to-pink-500', change: '+14.1%', up: true },
-          { label: 'Tingkat Selesai', value: '96.4%', icon: CheckCircle, color: 'from-orange-500 to-red-500', change: '-0.3%', up: false },
+          { label: 'Revenue Bulan Ini', value: formatCurrency(stats.revenue || 0), icon: DollarSign, color: 'from-green-500 to-emerald-500', change: '+100%', up: true },
+          { label: 'Orders Bulan Ini', value: String(stats.orders || 0), icon: ShoppingBag, color: 'from-blue-500 to-indigo-500', change: '+100%', up: true },
+          { label: 'Customer Baru', value: String(stats.customers || 0), icon: Users, color: 'from-purple-500 to-pink-500', change: '+100%', up: true },
+          { label: 'Tingkat Selesai', value: `${(stats.completionRate || 0).toFixed(1)}%`, icon: CheckCircle, color: 'from-orange-500 to-red-500', change: 'Live', up: true },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -109,7 +122,7 @@ export default function ReportsPage() {
           </div>
         </div>
         <div className="flex items-end gap-3 h-52">
-          {MONTHLY_DATA.map((d, i) => (
+          {monthlyData.map((d: any, i: number) => (
             <div key={d.month} className="flex-1 flex flex-col items-center gap-2">
               <div className="w-full flex flex-col items-center gap-1" style={{ height: '180px' }}>
                 <div className="w-full flex gap-1 items-end h-full">
@@ -146,7 +159,7 @@ export default function ReportsPage() {
             Layanan Terpopuler
           </h3>
           <div className="space-y-4">
-            {TOP_SERVICES.map((service, i) => (
+            {topServices.map((service: any, i: number) => (
               <div key={i} className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="flex justify-between text-sm mb-1.5">
@@ -180,7 +193,7 @@ export default function ReportsPage() {
             Top Joki Performer
           </h3>
           <div className="space-y-4">
-            {TOP_JOKI.map((joki, i) => (
+            {topJoki.map((joki: any, i: number) => (
               <div key={i} className="flex items-center gap-4 p-4 bg-surface-2 rounded-xl border border-border">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-xs font-bold text-primary-light">
                   #{i + 1}
@@ -211,20 +224,19 @@ export default function ReportsPage() {
           Ringkasan Status Order
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[
-            { status: 'Pending', count: 23, color: 'bg-yellow-500/10 text-yellow-400', icon: Clock },
-            { status: 'Dikerjakan', count: 45, color: 'bg-blue-500/10 text-blue-400', icon: TrendingUp },
-            { status: 'Review', count: 12, color: 'bg-purple-500/10 text-purple-400', icon: FileText },
-            { status: 'Selesai', count: 256, color: 'bg-green-500/10 text-green-400', icon: CheckCircle },
-            { status: 'Revisi', count: 8, color: 'bg-orange-500/10 text-orange-400', icon: ArrowUpRight },
-            { status: 'Dibatalkan', count: 12, color: 'bg-red-500/10 text-red-400', icon: XCircle },
-          ].map((item, i) => (
-            <div key={i} className={`p-4 rounded-xl ${item.color} text-center`}>
-              <item.icon className="w-6 h-6 mx-auto mb-2" />
-              <p className="text-2xl font-bold">{item.count}</p>
-              <p className="text-xs mt-1">{item.status}</p>
-            </div>
-          ))}
+          {statusSummary.map((item: any, i: number) => {
+            const Icon = item.status === 'Pending' ? Clock :
+              item.status === 'Dikerjakan' ? TrendingUp :
+                item.status === 'Selesai' ? CheckCircle :
+                  item.status === 'Dibatalkan' ? XCircle : FileText;
+            return (
+              <div key={i} className={`p-4 rounded-xl ${item.color} text-center`}>
+                <Icon className="w-6 h-6 mx-auto mb-2" />
+                <p className="text-2xl font-bold">{item.count}</p>
+                <p className="text-xs mt-1">{item.status}</p>
+              </div>
+            );
+          })}
         </div>
       </motion.div>
     </div>

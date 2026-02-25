@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
       totalCompleted,
       monthlyCommission,
       recentOrders,
+      recentReviews,
     ] = await Promise.all([
       prisma.order.count({ where: { joki_id: joki.id, status: 'IN_PROGRESS' } }),
       prisma.order.count({
@@ -47,7 +48,27 @@ export async function GET(req: NextRequest) {
           user: { select: { name: true } },
         },
       }),
+      prisma.review.findMany({
+        where: { joki_id: joki.id },
+        orderBy: { created_at: 'desc' },
+        take: 5,
+        include: {
+          user: { select: { name: true } },
+          order: { select: { order_number: true, title: true } }
+        }
+      }),
     ]);
+
+    const formattedReviews = recentReviews.map(r => ({
+      id: r.id,
+      customer: r.user.name,
+      service: r.order.title,
+      order: r.order.order_number,
+      rating: r.rating,
+      comment: r.comment,
+      date: r.created_at.toISOString().split('T')[0],
+      avatar: r.user.name.charAt(0).toUpperCase()
+    }));
 
     const commission = Number(monthlyCommission._sum.price || 0) * (joki.commission_rate / 100);
 
@@ -65,8 +86,10 @@ export async function GET(req: NextRequest) {
         completed_this_month: completedThisMonth,
         total_completed: totalCompleted,
         monthly_commission: Math.round(commission),
+        total_reviews: formattedReviews.length, // Placeholder for actual count
       },
       recent_orders: recentOrders,
+      reviews: formattedReviews
     });
   } catch (error) {
     console.error('Joki dashboard error:', error);

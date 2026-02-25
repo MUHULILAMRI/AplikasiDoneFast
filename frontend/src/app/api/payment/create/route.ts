@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if ('error' in auth) return auth.error;
 
     const body = await req.json();
-    const { order_id, payment_method } = body;
+    const { order_id, payment_method, proof_url } = body;
 
     if (!order_id || !payment_method) {
       return apiError('Order ID dan metode pembayaran wajib diisi');
@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
         user_id: auth.user.userId,
         amount: order.price,
         payment_method,
+        payment_url: proof_url,
         external_id: `PAY-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       },
     });

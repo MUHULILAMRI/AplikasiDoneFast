@@ -9,6 +9,7 @@ import {
   DollarSign, Star, Settings, LogOut, Menu, X, Bell,
   ChevronLeft, ChevronRight, User, Zap
 } from 'lucide-react';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard/joki' },
@@ -41,9 +42,8 @@ export default function JokiDashboardLayout({ children }: { children: React.Reac
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${collapsed ? 'w-20' : 'w-64'} glass border-r border-border flex flex-col transition-all duration-300 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      }`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 ${collapsed ? 'w-20' : 'w-64'} glass border-r border-border flex flex-col transition-all duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}>
         <div className={`p-6 border-b border-border flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
           {!collapsed && (
             <Link href="/dashboard/joki" className="flex items-center gap-2">
@@ -73,11 +73,10 @@ export default function JokiDashboardLayout({ children }: { children: React.Reac
                 key={item.href}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
-                  isActive
-                    ? 'bg-gradient-to-r from-accent/20 to-primary/10 text-accent border border-accent/20'
-                    : 'text-muted hover:text-foreground hover:bg-surface-2'
-                } ${collapsed ? 'justify-center' : ''}`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${isActive
+                  ? 'bg-gradient-to-r from-accent/20 to-primary/10 text-accent border border-accent/20'
+                  : 'text-muted hover:text-foreground hover:bg-surface-2'
+                  } ${collapsed ? 'justify-center' : ''}`}
                 title={collapsed ? item.label : undefined}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -112,25 +111,26 @@ export default function JokiDashboardLayout({ children }: { children: React.Reac
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Bar */}
-        <header className="glass border-b border-border px-6 py-4 flex items-center justify-between">
+        <header className="glass border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-surface-2 rounded-lg">
               <Menu className="w-5 h-5" />
             </button>
             <div>
+              <Breadcrumbs />
               <h2 className="font-semibold text-sm">Selamat Datang, Alex! 👋</h2>
               <p className="text-xs text-muted">Mari selesaikan tugas hari ini</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative p-2 hover:bg-surface-2 rounded-lg">
+            <Link href="/dashboard/joki/notifications" className="relative p-2 hover:bg-surface-2 rounded-lg">
               <Bell className="w-5 h-5 text-muted" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-accent rounded-full" />
-            </button>
-            <button className="relative p-2 hover:bg-surface-2 rounded-lg">
+            </Link>
+            <Link href="/dashboard/joki/chat" className="relative p-2 hover:bg-surface-2 rounded-lg">
               <MessageSquare className="w-5 h-5 text-muted" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            </Link>
           </div>
         </header>
 

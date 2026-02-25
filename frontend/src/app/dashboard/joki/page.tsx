@@ -10,10 +10,12 @@ import {
   Star, TrendingUp, AlertCircle, ArrowUpRight,
   Timer, Target, Zap, Award, MessageSquare
 } from 'lucide-react';
+import { StatsSkeleton } from '@/components/ui/Skeleton';
 
 export default function JokiDashboardPage() {
   const [activeOrders, setActiveOrders] = useState<Record<string, unknown>[]>([]);
   const [dashStats, setDashStats] = useState({ active: 0, completed: 0, commission: 0, rating: 0, reviews: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -31,6 +33,7 @@ export default function JokiDashboardPage() {
           reviews: 0,
         });
       }
+      setLoading(false);
     }
     load();
   }, []);
@@ -38,29 +41,33 @@ export default function JokiDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Order Aktif', value: String(dashStats.active), icon: ClipboardList, color: 'from-blue-500 to-indigo-500', sub: '' },
-          { label: 'Selesai Bulan Ini', value: String(dashStats.completed), icon: CheckCircle, color: 'from-green-500 to-emerald-500', sub: '' },
-          { label: 'Komisi Bulan Ini', value: formatCurrency(dashStats.commission), icon: DollarSign, color: 'from-purple-500 to-pink-500', sub: '' },
-          { label: 'Rating', value: String(dashStats.rating || '-'), icon: Star, color: 'from-yellow-500 to-amber-500', sub: `${dashStats.reviews} reviews` },
-        ].map((stat, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="glass rounded-2xl p-5"
-          >
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
-              <stat.icon className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-xl font-bold">{stat.value}</p>
-            <p className="text-xs text-muted mt-1">{stat.label}</p>
-            <p className="text-[10px] text-accent mt-0.5">{stat.sub}</p>
-          </motion.div>
-        ))}
-      </div>
+      {loading ? (
+        <StatsSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Order Aktif', value: String(dashStats.active), icon: ClipboardList, color: 'from-blue-500 to-indigo-500', sub: '' },
+            { label: 'Selesai Bulan Ini', value: String(dashStats.completed), icon: CheckCircle, color: 'from-green-500 to-emerald-500', sub: '' },
+            { label: 'Komisi Bulan Ini', value: formatCurrency(dashStats.commission), icon: DollarSign, color: 'from-purple-500 to-pink-500', sub: '' },
+            { label: 'Rating', value: String(dashStats.rating || '-'), icon: Star, color: 'from-yellow-500 to-amber-500', sub: `${dashStats.reviews} reviews` },
+          ].map((stat, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="glass rounded-2xl p-5"
+            >
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
+                <stat.icon className="w-5 h-5 text-white" />
+              </div>
+              <p className="text-xl font-bold">{stat.value}</p>
+              <p className="text-xs text-muted mt-1">{stat.label}</p>
+              <p className="text-[10px] text-accent mt-0.5">{stat.sub}</p>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Performance Ring */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

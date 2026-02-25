@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import { apiGetOrder, apiCreatePayment } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
 import {
   QrCode, Wallet, Building, CheckCircle2,
@@ -93,18 +94,39 @@ function CheckoutForm() {
     if (!order || !proofFile) return;
     setIsSubmitting(true);
 
-    // Create payment record with method
-    await apiCreatePayment({
-      order_id: order.id,
-      payment_method: selectedMethod.toUpperCase(),
-    });
+    try {
+      // 1. Upload to Supabase Storage
+      const fileExt = proofFile.name.split('.').pop();
+      const fileName = `${order.order_number}-${Date.now()}.${fileExt}`;
+      const filePath = `payments/${fileName}`;
 
-    // In a real app, you'd upload the file here.
-    // For now, we just mark the order as "waiting for admin confirmation"
-    setTimeout(() => {
-      setIsSubmitting(false);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('payments')
+        .upload(filePath, proofFile);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('payments')
+        .getPublicUrl(filePath);
+
+      // 3. Create payment record with proof_url
+      const res = await apiCreatePayment({
+        order_id: order.id,
+        payment_method: selectedMethod.toUpperCase(),
+        proof_url: publicUrl,
+      });
+
+      if (!res.success) throw new Error(res.error);
+
       setIsSubmitted(true);
-    }, 1500);
+    } catch (err: any) {
+      console.error('Upload proof error:', err);
+      alert('Gagal mengirim bukti: ' + (err.message || 'Terjadi kesalahan'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const waLink = order

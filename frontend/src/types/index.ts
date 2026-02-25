@@ -4,7 +4,7 @@
 
 export type UserRole = 'customer' | 'admin' | 'joki';
 
-export type OrderStatus = 
+export type OrderStatus =
   | 'pending_payment'
   | 'paid'
   | 'in_progress'
@@ -16,7 +16,7 @@ export type PaymentMethod = 'qris' | 'dana' | 'ovo' | 'bank_transfer' | 'ewallet
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 
-export type ServiceCategory = 
+export type ServiceCategory =
   | 'akademik'
   | 'arsitektur'
   | 'coding'
@@ -56,6 +56,7 @@ export interface Service {
   image?: string;
   features: string[];
   is_popular: boolean;
+  is_active: boolean;
 }
 
 // ============================================

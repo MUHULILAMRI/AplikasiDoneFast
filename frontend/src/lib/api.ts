@@ -24,9 +24,13 @@ export function removeToken() {
   }
 }
 
+const MAX_RETRIES = 2;
+const REQUEST_TIMEOUT = 10000; // 10 seconds
+
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  retries: number = MAX_RETRIES
 ): Promise<{ success: true; data: T } | { success: false; error: string }> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -38,14 +42,31 @@ async function request<T>(
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
     const res = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
     const json = await res.json();
     return json;
-  } catch {
-    return { success: false, error: 'Terjadi kesalahan jaringan' };
+  } catch (err) {
+    // Retry on network errors (not on user abort)
+    if (retries > 0 && !(err instanceof DOMException && err.name === 'AbortError' && options.signal?.aborted)) {
+      // Small delay before retry
+      await new Promise(r => setTimeout(r, 500));
+      return request<T>(endpoint, options, retries - 1);
+    }
+
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { success: false, error: 'Koneksi timeout. Periksa koneksi internet kamu.' };
+    }
+
+    return { success: false, error: 'Terjadi kesalahan jaringan. Silakan coba lagi.' };
   }
 }
 
@@ -102,6 +123,26 @@ export async function apiGetService(id: string) {
   return request<unknown>(`/services/${id}`);
 }
 
+export async function apiCreateService(data: Record<string, unknown>) {
+  return request<unknown>('/services', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiUpdateService(id: string, data: Record<string, unknown>) {
+  return request<unknown>(`/services/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiDeleteService(id: string) {
+  return request<unknown>(`/services/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 // ============================================
 // Orders APIs
 // ============================================
@@ -146,6 +187,7 @@ export async function apiGetOrderTracking(id: string) {
 export async function apiCreatePayment(data: {
   order_id: string;
   payment_method: string;
+  proof_url?: string;
 }) {
   return request<unknown>('/payment/create', {
     method: 'POST',
@@ -263,6 +305,14 @@ export async function apiAdminTeam() {
   return request<unknown[]>('/admin/team');
 }
 
+export async function apiAdminCustomers() {
+  return request<{ customers: any[]; stats: any }>('/admin/customers');
+}
+
+export async function apiAdminReports() {
+  return request<any>('/admin/reports');
+}
+
 export async function apiAdminCreateTeam(data: Record<string, unknown>) {
   return request<unknown>('/admin/team', {
     method: 'POST',
@@ -287,6 +337,19 @@ export async function apiAdminAssignOrder(orderId: string, jokiId: string) {
   return request<unknown>(`/admin/orders/${orderId}/assign`, {
     method: 'POST',
     body: JSON.stringify({ joki_id: jokiId }),
+  });
+}
+
+export async function apiAdminCancelOrder(orderId: string, reason?: string) {
+  return request<unknown>(`/admin/orders/${orderId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || 'Dibatalkan oleh admin' }),
+  });
+}
+
+export async function apiAdminConfirmPayment(orderId: string) {
+  return request<unknown>(`/admin/orders/${orderId}/confirm-payment`, {
+    method: 'POST',
   });
 }
 

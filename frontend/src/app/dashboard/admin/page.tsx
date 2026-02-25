@@ -9,6 +9,7 @@ import {
   Clock, CheckCircle2, AlertCircle, ArrowUpRight,
   ArrowDownRight, BarChart3, Activity
 } from 'lucide-react';
+import { StatsSkeleton, TableSkeleton } from '@/components/ui/Skeleton';
 
 const monthlyData = [
   { month: 'Sep', value: 45 },
@@ -22,10 +23,11 @@ const monthlyData = [
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Record<string, number>>({
     total_orders_today: 0, total_income_today: 0, active_users: 0, total_income_month: 0,
-    pending_orders: 0, in_progress_orders: 0, completed_orders: 0, total_profit_month: 0,
+    pending_orders: 0, in_progress_orders: 0, completed_orders: 0, revision_orders: 0, total_profit_month: 0,
   });
   const [recentOrders, setRecentOrders] = useState<Record<string, unknown>[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -42,6 +44,7 @@ export default function AdminDashboardPage() {
           pending_orders: orderSummary.pending ?? 0,
           in_progress_orders: orderSummary.in_progress ?? 0,
           completed_orders: orderSummary.completed ?? 0,
+          revision_orders: orderSummary.revision ?? 0,
           total_profit_month: overview.monthly_revenue ?? 0,
         });
         if (d.recent_orders) {
@@ -61,6 +64,7 @@ export default function AdminDashboardPage() {
           })));
         }
       }
+      setLoading(false);
     }
     load();
   }, []);
@@ -80,35 +84,38 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="glass rounded-2xl p-6 hover:scale-[1.02] transition-transform"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center`}>
-                <stat.icon className="w-6 h-6 text-white" />
+      {loading ? (
+        <StatsSkeleton />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards.map((stat, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="glass rounded-2xl p-6 hover:scale-[1.02] transition-transform"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center`}>
+                  <stat.icon className="w-6 h-6 text-white" />
+                </div>
+                <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${stat.positive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                  }`}>
+                  {stat.positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                  {stat.change}
+                </span>
               </div>
-              <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
-                stat.positive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-              }`}>
-                {stat.positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                {stat.change}
-              </span>
-            </div>
-            <p className="text-2xl font-bold">
-              {stat.format === 'currency'
-                ? formatCurrency(stat.value)
-                : stat.value.toLocaleString()}
-            </p>
-            <p className="text-sm text-muted mt-1">{stat.label}</p>
-          </motion.div>
-        ))}
-      </div>
+              <p className="text-2xl font-bold">
+                {stat.format === 'currency'
+                  ? formatCurrency(stat.value)
+                  : stat.value.toLocaleString()}
+              </p>
+              <p className="text-sm text-muted mt-1">{stat.label}</p>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Charts & Orders Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -163,7 +170,7 @@ export default function AdminDashboardPage() {
               { label: 'Menunggu Bayar', count: stats.pending_orders, icon: Clock, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
               { label: 'Diproses', count: stats.in_progress_orders, icon: Activity, color: 'text-purple-400', bg: 'bg-purple-500/10' },
               { label: 'Selesai', count: stats.completed_orders, icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-500/10' },
-              { label: 'Perlu Revisi', count: 5, icon: AlertCircle, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+              { label: 'Perlu Revisi', count: stats.revision_orders, icon: AlertCircle, color: 'text-orange-400', bg: 'bg-orange-500/10' },
             ].map((item, i) => (
               <div key={i} className="flex items-center justify-between p-3 bg-surface-2 rounded-xl border border-border">
                 <div className="flex items-center gap-3">
