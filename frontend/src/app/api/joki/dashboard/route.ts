@@ -48,18 +48,10 @@ export async function GET(req: NextRequest) {
           user: { select: { name: true } },
         },
       }),
-      prisma.review.findMany({
-        where: { joki_id: joki.id },
-        orderBy: { created_at: 'desc' },
-        take: 5,
-        include: {
-          user: { select: { name: true } },
-          order: { select: { order_number: true, title: true } }
-        }
-      }),
+      Promise.resolve([]), // Model Review belum ada di schema.prisma, kembalikan kosong sementara.
     ]);
 
-    const formattedReviews = recentReviews.map(r => ({
+    const formattedReviews = recentReviews.map((r: any) => ({
       id: r.id,
       customer: r.user.name,
       service: r.order.title,

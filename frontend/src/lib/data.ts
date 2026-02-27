@@ -15,6 +15,7 @@ export const SERVICES: Service[] = [
     estimated_days: 3,
     features: ['Referensi lengkap', 'Anti plagiarisme', 'Format APA/MLA', 'Revisi 2x gratis'],
     is_popular: true,
+    is_active: true,
   },
   {
     id: '2',
@@ -27,6 +28,7 @@ export const SERVICES: Service[] = [
     estimated_days: 14,
     features: ['Bab 1-5', 'Konsultasi dosen', 'Revisi unlimited', 'Turnitin check'],
     is_popular: true,
+    is_active: true,
   },
   {
     id: '3',
@@ -39,6 +41,7 @@ export const SERVICES: Service[] = [
     estimated_days: 2,
     features: ['Design premium', 'Animasi smooth', 'Custom template', 'Infografis'],
     is_popular: true,
+    is_active: true,
   },
   {
     id: '4',
@@ -51,6 +54,7 @@ export const SERVICES: Service[] = [
     estimated_days: 7,
     features: ['Render 3D HD', 'Denah lengkap', 'AutoCAD files', 'Revisi 3x'],
     is_popular: false,
+    is_active: true,
   },
   {
     id: '5',
@@ -63,6 +67,7 @@ export const SERVICES: Service[] = [
     estimated_days: 10,
     features: ['3D Visualization', 'Mood board', 'Material list', 'Layout plan'],
     is_popular: false,
+    is_active: true,
   },
   {
     id: '6',
@@ -75,6 +80,7 @@ export const SERVICES: Service[] = [
     estimated_days: 7,
     features: ['Full responsive', 'SEO optimized', 'Dashboard admin', 'Source code'],
     is_popular: true,
+    is_active: true,
   },
   {
     id: '7',
@@ -87,6 +93,7 @@ export const SERVICES: Service[] = [
     estimated_days: 14,
     features: ['Cross-platform', 'UI/UX modern', 'API integration', 'Play Store ready'],
     is_popular: false,
+    is_active: true,
   },
   {
     id: '8',
@@ -99,6 +106,7 @@ export const SERVICES: Service[] = [
     estimated_days: 2,
     features: ['Semua bahasa', 'Clean code', 'Dokumentasi', 'Penjelasan kode'],
     is_popular: true,
+    is_active: true,
   },
   {
     id: '9',
@@ -111,6 +119,7 @@ export const SERVICES: Service[] = [
     estimated_days: 1,
     features: ['1-on-1 session', 'Video call', 'Chat 24/7', 'Follow up gratis'],
     is_popular: true,
+    is_active: true,
   },
   {
     id: '10',
@@ -123,6 +132,7 @@ export const SERVICES: Service[] = [
     estimated_days: 1,
     features: ['Business plan', 'Market analysis', 'Strategy session', 'Networking'],
     is_popular: false,
+    is_active: true,
   },
   {
     id: '11',
@@ -135,6 +145,7 @@ export const SERVICES: Service[] = [
     estimated_days: 10,
     features: ['Custom model', 'Data preprocessing', 'Training & testing', 'Documentation'],
     is_popular: false,
+    is_active: true,
   },
   {
     id: '12',
@@ -147,6 +158,7 @@ export const SERVICES: Service[] = [
     estimated_days: 5,
     features: ['Custom bot', '24/7 running', 'API integration', 'Dashboard monitoring'],
     is_popular: false,
+    is_active: true,
   },
 ];
 

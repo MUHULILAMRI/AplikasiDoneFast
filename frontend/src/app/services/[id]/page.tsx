@@ -9,7 +9,7 @@ import Footer from '@/components/layout/Footer';
 import { apiGetService, apiGetServices } from '@/lib/api';
 import { formatCurrency, getCategoryLabel } from '@/lib/utils';
 import {
-    Star, Clock, Shield, CheckCircle2, ArrowLeft,
+    Star, Clock, Shield, CheckCircle2, ArrowLeft, ArrowRight,
     MessageSquare, Share2, Heart, Zap, Globe,
     Users, Award, PlayCircle
 } from 'lucide-react';
@@ -156,8 +156,8 @@ export default function ServiceDetailPage() {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id as any)}
                                         className={`flex items-center gap-2 px-6 py-4 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${activeTab === tab.id
-                                                ? 'border-primary text-primary-light bg-primary/5'
-                                                : 'border-transparent text-muted hover:text-foreground hover:bg-surface-2'
+                                            ? 'border-primary text-primary-light bg-primary/5'
+                                            : 'border-transparent text-muted hover:text-foreground hover:bg-surface-2'
                                             }`}
                                     >
                                         <tab.icon className="w-4 h-4" />
