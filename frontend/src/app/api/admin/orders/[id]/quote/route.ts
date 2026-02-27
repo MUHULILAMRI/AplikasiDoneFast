@@ -4,9 +4,9 @@ import { authenticateRequest, apiSuccess, apiError } from '@/lib/auth';
 
 export async function POST(
     req: NextRequest,
-    { params }: any
+    context: { params: Promise<{ id: string }> }
 ) {
-    const { id } = await params;
+    const { id } = await context.params;
     try {
         const auth = await authenticateRequest(req);
         if ('error' in auth) return auth.error;
