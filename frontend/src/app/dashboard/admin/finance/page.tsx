@@ -6,7 +6,7 @@ import { apiAdminFinance } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
   DollarSign, TrendingUp, TrendingDown, Wallet,
-  ArrowUpRight, Download, Calendar, PieChart
+  ArrowUpRight, Download, Calendar, PieChart, ExternalLink
 } from 'lucide-react';
 
 export default function FinancePage() {
@@ -225,6 +225,14 @@ export default function FinancePage() {
                       <span className="text-[10px] font-medium text-muted">{tx.user_name as string}</span>
                       <span className="text-[10px] text-muted/40">•</span>
                       <span className="text-[10px] font-medium text-muted" suppressHydrationWarning>{tx.date as string}</span>
+                      {Boolean(tx.payment_url) && (
+                        <>
+                          <span className="text-[10px] text-muted/40">•</span>
+                          <a href={tx.payment_url as string} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary-light hover:underline flex items-center gap-1">
+                            <ExternalLink className="w-3 h-3" /> Bukti tf
+                          </a>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

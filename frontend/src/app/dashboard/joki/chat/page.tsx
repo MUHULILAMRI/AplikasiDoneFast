@@ -145,6 +145,7 @@ export default function JokiChatPage() {
 
   function selectChat(conv: Conversation) {
     setSelectedChat(conv);
+    setMessages([]); // Clear previous messages immediately
     loadMessages(conv.orderId);
   }
 
@@ -268,8 +269,8 @@ export default function JokiChatPage() {
                       </div>
                     )}
                     <div className={`max-w-[70%] ${isMine
-                        ? 'bg-gradient-to-r from-accent to-primary text-white rounded-2xl rounded-br-md'
-                        : 'bg-surface-2 border border-border rounded-2xl rounded-bl-md'
+                      ? 'bg-gradient-to-r from-accent to-primary text-white rounded-2xl rounded-br-md'
+                      : 'bg-surface-2 border border-border rounded-2xl rounded-bl-md'
                       } px-4 py-3`}>
                       {!isMine && (
                         <p className="text-[10px] font-semibold text-primary-light mb-0.5">{msg.senderName}</p>

@@ -755,7 +755,16 @@ export default function OrderManagementPage() {
                         <p className="font-medium text-sm">{String((detailModal.user as OrderRecord)?.name || '')}</p>
                         <p className="text-xs text-muted">{String((detailModal.user as OrderRecord)?.email || '')}</p>
                         {Boolean((detailModal.user as OrderRecord)?.phone) && (
-                          <p className="text-xs text-muted">{String((detailModal.user as OrderRecord)?.phone || '')}</p>
+                          <a
+                            href={`https://wa.me/${String((detailModal.user as OrderRecord)?.phone).replace(/^0/, '62').replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-green-400 hover:text-green-300 font-bold mt-1 inline-flex items-center gap-1 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20"
+                            title="Chat via WhatsApp"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            {String((detailModal.user as OrderRecord)?.phone || '')}
+                          </a>
                         )}
                       </div>
 
@@ -889,24 +898,34 @@ export default function OrderManagementPage() {
 
                     {/* Transactions */}
                     {(detailModal.transactions as OrderRecord[])?.length > 0 && (
-                      <div className="bg-surface-2 rounded-xl p-4 border border-border">
+                      <div className="bg-surface-2 rounded-xl p-4 border border-border mt-3">
                         <h4 className="text-sm font-semibold mb-3">Riwayat Transaksi</h4>
                         <div className="space-y-2">
                           {(detailModal.transactions as OrderRecord[]).map((tx) => (
-                            <div key={tx.id as string} className="flex items-center justify-between text-sm p-2 bg-surface rounded-lg">
+                            <div key={tx.id as string} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm p-3 bg-surface rounded-lg border border-border/50">
                               <div>
-                                <span className="font-medium">{String(tx.payment_method || '')}</span>
-                                <span className="text-xs text-muted ml-2">
+                                <span className="font-bold text-foreground">{String(tx.payment_method || '')}</span>
+                                <span className="text-xs text-muted ml-2 block sm:inline mt-1 sm:mt-0">
                                   {tx.created_at ? formatDateTime(tx.created_at as string) : ''}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{formatCurrency(tx.amount as number)}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${String(tx.payment_status) === 'PAID' ? 'bg-green-500/20 text-green-400' :
-                                  tx.payment_status === 'REFUNDED' ? 'bg-red-500/20 text-red-400' :
-                                    'bg-yellow-500/20 text-yellow-400'
+                              <div className="flex items-center gap-3 self-end sm:self-auto">
+                                {Boolean(tx.payment_url) && (
+                                  <a
+                                    href={tx.payment_url as string}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary-light border border-primary/20 hover:bg-primary/20 rounded-lg text-xs font-semibold overflow-hidden transition-all whitespace-nowrap"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" /> Lihat Bukti
+                                  </a>
+                                )}
+                                <span className="font-bold whitespace-nowrap">{formatCurrency(tx.amount as number)}</span>
+                                <span className={`text-[10px] px-2 py-1 rounded border font-black uppercase tracking-wider whitespace-nowrap ${String(tx.payment_status) === 'PAID' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                  tx.payment_status === 'REFUNDED' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                                    'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
                                   }`}>
-                                  {String(tx.payment_status || '')}
+                                  {String(tx.payment_status || '').replace('_', ' ')}
                                 </span>
                               </div>
                             </div>

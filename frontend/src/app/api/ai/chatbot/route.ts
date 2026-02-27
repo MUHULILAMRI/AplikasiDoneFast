@@ -90,16 +90,17 @@ Data kamu aman bersama kami! 🛡️`,
   },
   {
     topic: 'cara_order',
-    keywords: ['gimana', 'bagaimana', 'cara', 'langkah', 'step', 'order', 'pesan', 'buat pesanan', 'mulai', 'daftar', 'alur'],
-    response: `Cara order di DoneFast sangat mudah:
+    keywords: ['gimana', 'bagaimana', 'cara', 'langkah', 'step', 'order', 'pesan', 'buat pesanan', 'mulai', 'daftar', 'alur', 'panduan', 'tutorial'],
+    response: `Panduan Lengkap Cara Order di DoneFast (Sampai Selesai):
 
-1️⃣ **Pilih Layanan** — browse di marketplace atau cari layanan yang kamu butuhkan
-2️⃣ **Isi Detail** — jelaskan tugas, upload brief/referensi, dan pilih deadline
-3️⃣ **Bayar** — pilih metode pembayaran favorit kamu
-4️⃣ **Tunggu Pengerjaan** — joki mulai kerja dan kamu bisa chat langsung
-5️⃣ **Terima Hasil** — download hasil, review, dan minta revisi jika perlu
+1️⃣ **Temukan Layanan** — Buka halaman Marketplace dan cari layanan akademik, coding, atau desain yang kamu butuhkan.
+2️⃣ **Isi Detail Order** — Masukkan deskripsi tugas, unggah file referensi, lalu tentukan *deadline* penyelesaiannya.
+3️⃣ **Checkout & Bayar** — Halaman checkout akan menjumlahkan tarif. Pilih metode pembayaran (BCA, BRI, SeaBank, e-Wallet) lalu **unggah bukti transfer**.
+4️⃣ **Tunggu Konfirmasi** — Status akan 'Menunggu Bayar' hingga Admin memverifikasi dana (max 30 menit). Status pun berubah 'Dikerjakan'.
+5️⃣ **Chat & Pantau** — Kami akan meng-assign Joki profesional. Kamu bisa chat interaktif dengan Joki atau Admin dari menu 'Pesanan Saya'.
+6️⃣ **Terima Hasil** — Saat Joki mengunggah hasil, status menjadi 'Selesai'. Kamu bisa mereview file dan meminta Revisi gratis maksimal 2x.
 
-Semudah itu! Mau langsung order? Kunjungi halaman Marketplace 🛒`,
+Jika semuanya beres, jangan lupa berikan rating Bintang 5! ⭐ Semudah itu. Mau cek layanan sekarang? 🛒`,
   },
   {
     topic: 'joki',

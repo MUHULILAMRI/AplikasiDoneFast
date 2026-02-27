@@ -114,7 +114,7 @@ export default function AdminDashboardPage() {
 
               <div className="relative z-10">
                 <p className="text-2xl font-black tracking-tight" suppressHydrationWarning>
-                  {stat.format === 'currency' ? formatCurrency(stat.value) : stat.value?.toLocaleString()}
+                  {stat.format === 'currency' ? formatCurrency(stat.value) : stat.value?.toLocaleString('id-ID')}
                 </p>
                 <p className="text-[10px] uppercase tracking-[0.1em] font-bold text-muted/80 mt-1">{stat.label}</p>
               </div>

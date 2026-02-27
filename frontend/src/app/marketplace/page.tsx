@@ -237,7 +237,7 @@ export default function MarketplacePage() {
                             <Clock className="w-4 h-4" />
                             {service.estimated_days}d
                           </span>
-                          <span>{service.total_orders.toLocaleString()} order</span>
+                          <span>{service.total_orders.toLocaleString('id-ID')} order</span>
                         </div>
 
                         {/* Price & CTA */}

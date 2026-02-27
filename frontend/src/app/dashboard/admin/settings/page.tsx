@@ -5,7 +5,8 @@ import { motion } from 'framer-motion';
 import {
   Settings, Bell, Shield, Palette, Globe, CreditCard,
   Mail, Smartphone, Database, Key, Save, Upload,
-  ToggleLeft, ToggleRight, Lock, User, CheckCircle, Loader2
+  ToggleLeft, ToggleRight, Lock, User, CheckCircle, Loader2,
+  Wallet, Plus, Trash2
 } from 'lucide-react';
 import { apiGetMe, apiUpdateProfile, apiGetSettings, apiUpdateSettings } from '@/lib/api';
 import { useAppStore } from '@/store/useAppStore';
@@ -29,13 +30,18 @@ export default function SettingsPage() {
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingSaving, setPricingSaving] = useState(false);
   const [pricingSaved, setPricingSaved] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
   // Load pricing from API
   useEffect(() => {
     async function loadPricing() {
       const res = await apiGetSettings();
       if (res.success) {
-        setPricing(prev => ({ ...prev, ...(res.data as Record<string, string>) }));
+        const data = res.data as Record<string, string>;
+        setPricing(prev => ({ ...prev, ...data }));
+        if (data.payment_methods) {
+          try { setPaymentMethods(JSON.parse(data.payment_methods)); } catch (e) { }
+        }
       }
     }
     loadPricing();
@@ -43,7 +49,8 @@ export default function SettingsPage() {
 
   const handleSavePricing = async () => {
     setPricingSaving(true);
-    const res = await apiUpdateSettings(pricing);
+    const payload = { ...pricing, payment_methods: JSON.stringify(paymentMethods) };
+    const res = await apiUpdateSettings(payload);
     setPricingSaving(false);
     if (res.success) {
       setPricingSaved(true);
@@ -559,6 +566,98 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Metode Pembayaran / Dompet Digital & Bank */}
+              <div className="glass rounded-2xl p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-green-400" />
+                    Metode Pembayaran (Dompet Digital & Bank)
+                  </h3>
+                  <button
+                    onClick={() => setPaymentMethods([...paymentMethods, { id: 'baru', label: 'Baru', icon: 'Wallet', number: '', color: 'from-gray-500 to-gray-400' }])}
+                    className="flex items-center gap-1 text-sm bg-primary/10 text-primary-light px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Tambah
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {paymentMethods.map((pm, i) => (
+                    <div key={i} className="flex flex-col sm:flex-row gap-3 p-4 bg-surface-2 rounded-xl border border-border items-start sm:items-center">
+                      <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-4 gap-3">
+                        <input
+                          type="text"
+                          value={pm.label}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[i].label = e.target.value;
+                            newMethods[i].id = e.target.value.toLowerCase().replace(/ /g, '_');
+                            setPaymentMethods(newMethods);
+                          }}
+                          placeholder="Nama Bank / E-Wallet"
+                          className="px-3 py-2 bg-background border border-border rounded-lg text-sm w-full focus:outline-none focus:border-primary/50"
+                        />
+                        <input
+                          type="text"
+                          value={pm.number}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[i].number = e.target.value;
+                            setPaymentMethods(newMethods);
+                          }}
+                          placeholder="No. Rekening / HP"
+                          className="px-3 py-2 bg-background border border-border rounded-lg text-sm w-full focus:outline-none focus:border-primary/50"
+                        />
+                        <select
+                          value={pm.icon}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[i].icon = e.target.value;
+                            setPaymentMethods(newMethods);
+                          }}
+                          className="px-3 py-2 bg-background border border-border rounded-lg text-sm w-full focus:outline-none focus:border-primary/50 cursor-pointer"
+                        >
+                          <option value="Wallet">Wallet / E-Wallet</option>
+                          <option value="Building">Bank</option>
+                          <option value="CreditCard">Kartu Kredit</option>
+                          <option value="QrCode">QRIS</option>
+                        </select>
+                        <select
+                          value={pm.color}
+                          onChange={(e) => {
+                            const newMethods = [...paymentMethods];
+                            newMethods[i].color = e.target.value;
+                            setPaymentMethods(newMethods);
+                          }}
+                          className="px-3 py-2 bg-background border border-border rounded-lg text-sm w-full focus:outline-none focus:border-primary/50 cursor-pointer"
+                        >
+                          <option value="from-blue-500 to-cyan-500">Biru Muda (Dana/dll)</option>
+                          <option value="from-blue-800 to-blue-600">Biru BCA</option>
+                          <option value="from-purple-600 to-purple-400">Ungu (OVO)</option>
+                          <option value="from-green-500 to-emerald-500">Hijau (GoPay/Tokopedia)</option>
+                          <option value="from-orange-500 to-red-500">Orange/Merah (ShopeePay/dll)</option>
+                          <option value="from-blue-600 to-blue-400">Biru Tua (BRI/Mandiri)</option>
+                          <option value="from-teal-500 to-cyan-500">Teal (SeaBank/Jago)</option>
+                          <option value="from-gray-600 to-gray-400">Netral / Abu-abu</option>
+                        </select>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newMethods = [...paymentMethods];
+                          newMethods.splice(i, 1);
+                          setPaymentMethods(newMethods);
+                        }}
+                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ))}
+                  {paymentMethods.length === 0 && (
+                    <p className="text-sm text-muted text-center py-4">Belum ada metode pembayaran yang diatur.</p>
+                  )}
                 </div>
               </div>
 

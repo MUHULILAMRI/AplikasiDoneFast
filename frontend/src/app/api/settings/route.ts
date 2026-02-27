@@ -5,6 +5,16 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { authenticateRequest, apiSuccess, apiError } from '@/lib/auth';
 
+const DEFAULT_PAYMENT_METHODS = JSON.stringify([
+    { id: 'dana', label: 'DANA', icon: 'Wallet', number: '082291220759', color: 'from-blue-500 to-cyan-500' },
+    { id: 'ovo', label: 'OVO', icon: 'Wallet', number: '082291220759', color: 'from-purple-600 to-purple-400' },
+    { id: 'gopay', label: 'GoPay', icon: 'Wallet', number: '082291220759', color: 'from-green-500 to-emerald-500' },
+    { id: 'shopeepay', label: 'ShopeePay', icon: 'Wallet', number: '082291220759', color: 'from-orange-500 to-red-500' },
+    { id: 'bank_bca', label: 'Bank BCA', icon: 'Building', number: '082291220759', color: 'from-blue-800 to-blue-600' },
+    { id: 'bank_bri', label: 'Bank BRI', icon: 'Building', number: '082291220759', color: 'from-blue-600 to-blue-400' },
+    { id: 'seabank', label: 'SeaBank', icon: 'Building', number: '082291220759', color: 'from-teal-500 to-cyan-500' },
+]);
+
 // Default pricing config
 const DEFAULTS: Record<string, string> = {
     'price_akademik': '50000',
@@ -16,6 +26,7 @@ const DEFAULTS: Record<string, string> = {
     'tax_percent': '0',
     'deadline_1day_multiplier': '2.5',
     'deadline_3day_multiplier': '1.8',
+    'payment_methods': DEFAULT_PAYMENT_METHODS,
 };
 
 export async function GET() {

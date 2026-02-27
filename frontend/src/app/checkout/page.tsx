@@ -2,29 +2,24 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
-import { apiGetOrder, apiCreatePayment } from '@/lib/api';
+import { apiGetOrder, apiCreatePayment, apiGetSettings } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
 import {
   QrCode, Wallet, Building, CheckCircle2,
   Shield, Clock, ArrowLeft, Copy, Upload,
-  MessageCircle, Image as ImageIcon, X
+  MessageCircle, Image as ImageIcon, X, CreditCard
 } from 'lucide-react';
 
 const PHONE_NUMBER = '082291220759';
 const WA_ADMIN = '6285998006060'; // for WhatsApp link
 
-const paymentMethods = [
-  { id: 'dana', label: 'DANA', icon: Wallet, number: PHONE_NUMBER, color: 'from-blue-500 to-cyan-500' },
-  { id: 'ovo', label: 'OVO', icon: Wallet, number: PHONE_NUMBER, color: 'from-purple-600 to-purple-400' },
-  { id: 'gopay', label: 'GoPay', icon: Wallet, number: PHONE_NUMBER, color: 'from-green-500 to-emerald-500' },
-  { id: 'shopeepay', label: 'ShopeePay', icon: Wallet, number: PHONE_NUMBER, color: 'from-orange-500 to-red-500' },
-  { id: 'bank_bri', label: 'Bank BRI', icon: Building, number: PHONE_NUMBER, color: 'from-blue-600 to-blue-400' },
-  { id: 'seabank', label: 'SeaBank', icon: Building, number: PHONE_NUMBER, color: 'from-teal-500 to-cyan-500' },
-];
+const ICONS: Record<string, any> = {
+  Wallet, Building, QrCode, CreditCard
+};
 
 interface Transaction {
   id: string;
@@ -48,7 +43,8 @@ function CheckoutForm() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id');
   const [order, setOrder] = useState<OrderData | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState('dana');
+  const [selectedMethod, setSelectedMethod] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
@@ -57,11 +53,16 @@ function CheckoutForm() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    async function loadOrder() {
+    async function loadData() {
       if (!orderId) { setLoading(false); return; }
-      const res = await apiGetOrder(orderId);
-      if (res.success) {
-        const d = res.data as any;
+
+      const [orderRes, settingsRes] = await Promise.all([
+        apiGetOrder(orderId),
+        apiGetSettings()
+      ]);
+
+      if (orderRes.success) {
+        const d = orderRes.data as any;
         setOrder({
           id: d.id as string,
           order_number: d.order_number as string,
@@ -81,9 +82,21 @@ function CheckoutForm() {
           }
         }
       }
+
+      if (settingsRes.success) {
+        const data = settingsRes.data as Record<string, string>;
+        if (data.payment_methods) {
+          try {
+            const parsed = JSON.parse(data.payment_methods);
+            setPaymentMethods(parsed);
+            if (parsed.length > 0) setSelectedMethod(parsed[0].id);
+          } catch (e) { }
+        }
+      }
+
       setLoading(false);
     }
-    loadOrder();
+    loadData();
   }, [orderId]);
 
   const orderTotal = order ? order.price - order.discount : 0;
@@ -353,42 +366,89 @@ function CheckoutForm() {
                         : 'border-border bg-surface-2 hover:border-primary/30'
                         }`}
                     >
-                      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${method.color} flex items-center justify-center`}>
-                        <method.icon className="w-5 h-5 text-white" />
+                      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${method.color || 'from-gray-500 to-gray-400'} flex items-center justify-center`}>
+                        {(() => {
+                          const IconComp = ICONS[method.icon] || Wallet;
+                          return <IconComp className="w-5 h-5 text-white" />;
+                        })()}
                       </div>
                       <span className="text-xs font-medium">{method.label}</span>
                     </button>
                   ))}
                 </div>
 
-                {/* Payment details */}
-                {selectedPayment && (
-                  <motion.div
-                    key={selectedMethod}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-5 p-4 bg-surface-2 rounded-xl border border-border"
-                  >
-                    <p className="text-xs text-muted mb-1">Transfer ke {selectedPayment.label}</p>
-                    <div className="flex items-center justify-between">
-                      <p className="font-mono font-bold text-xl">{selectedPayment.number}</p>
-                      <button
-                        onClick={() => handleCopy(selectedPayment.number)}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary-light rounded-lg text-xs font-medium hover:bg-primary/20 transition-colors"
-                      >
-                        <Copy className="w-3 h-3" />
-                        {copied ? 'Tersalin!' : 'Salin'}
-                      </button>
-                    </div>
-                    <p className="text-xs text-muted mt-1">a.n. <span className="text-foreground">DoneFast</span></p>
+                {/* Payment details - Virtual Card Design */}
+                <AnimatePresence mode="wait">
+                  {selectedPayment && (
+                    <motion.div
+                      key={selectedMethod}
+                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                      transition={{ duration: 0.3 }}
+                      className="mt-6 relative overflow-hidden rounded-2xl"
+                    >
+                      {/* Card Background Glow & Gradient */}
+                      <div className={`absolute inset-0 opacity-20 bg-gradient-to-r ${selectedPayment.color || 'from-primary to-accent'} blur-xl`} />
+                      <div className="relative p-6 bg-surface-2/80 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl">
 
-                    <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                      <p className="text-xs text-yellow-300">
-                        ⚠️ Transfer tepat <span className="font-bold text-yellow-200">{formatCurrency(orderTotal)}</span> agar pembayaran mudah diverifikasi.
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
+                        {/* Decorative elements */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-xl" />
+
+                        <div className="relative z-10 flex items-center justify-between mb-6">
+                          <div>
+                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Penerima Dana</p>
+                            <p className="font-semibold text-foreground flex items-center gap-2">
+                              {(() => {
+                                const IconComp = ICONS[selectedPayment.icon] || Wallet;
+                                return <IconComp className="w-4 h-4 text-primary-light" />;
+                              })()}
+                              {selectedPayment.label}
+                            </p>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-gradient-to-r ${selectedPayment.color || 'from-gray-500 to-gray-400'} text-white shadow-sm`}>
+                            Verified
+                          </div>
+                        </div>
+
+                        <div className="relative z-10 space-y-1 mb-6">
+                          <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Nomor Rekening / Virtual Account</p>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <p className="font-mono font-black text-2xl tracking-wider text-foreground drop-shadow-sm">
+                              {selectedPayment.number.replace(/(\d{4})/g, '$1 ').trim()}
+                            </p>
+                            <button
+                              onClick={() => handleCopy(selectedPayment.number)}
+                              className="group flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all hover:-translate-y-0.5 active:scale-95"
+                            >
+                              <Copy className="w-3.5 h-3.5 group-hover:animate-bounce" />
+                              {copied ? 'Tersalin!' : 'Salin Nomor'}
+                            </button>
+                          </div>
+                          <p className="text-xs font-medium text-muted mt-2 border-l-2 border-primary/30 pl-2">
+                            a.n. <span className="text-foreground">
+                              {selectedPayment.label.toLowerCase().includes('seabank')
+                                ? 'RESKI ANUGRAH SARI'
+                                : 'MUH. ULIL AMRI'}
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="relative z-10 mt-6 pt-4 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Total Tagihan (Wajib Pas)</p>
+                            <p className="font-black text-lg text-accent-green">{formatCurrency(orderTotal)}</p>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-medium text-yellow-500/80 bg-yellow-500/10 px-3 py-1.5 rounded-lg border border-yellow-500/20">
+                            <Clock className="w-3.5 h-3.5" />
+                            Bayar sebelum 1x24 jam
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Step 2: Upload Bukti */}
@@ -402,15 +462,27 @@ function CheckoutForm() {
                 {!proofFile ? (
                   <label
                     htmlFor="proof-upload"
-                    className="flex flex-col items-center gap-3 p-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 transition-colors"
+                    className="group flex flex-col items-center gap-4 p-10 border-2 border-dashed border-primary/30 bg-primary/5 rounded-2xl cursor-pointer hover:border-primary hover:bg-primary/10 transition-all duration-300 relative overflow-hidden"
                   >
-                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Upload className="w-7 h-7 text-primary-light" />
+                    {/* Animated gradient pulse background */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/0 via-primary/5 to-accent/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                    <div className="w-16 h-16 rounded-full bg-surface shadow-lg flex items-center justify-center group-hover:scale-110 group-hover:shadow-primary/20 transition-all duration-300 z-10 relative">
+                      <div className="absolute inset-0 rounded-full border border-primary/20 animate-ping opacity-20" />
+                      <Upload className="w-8 h-8 text-primary group-hover:-translate-y-1 transition-transform" />
                     </div>
-                    <div className="text-center">
-                      <p className="font-medium text-sm">Klik untuk upload bukti transfer</p>
-                      <p className="text-xs text-muted mt-1">JPG, PNG, atau PDF (maks 5MB)</p>
+
+                    <div className="text-center z-10 relative">
+                      <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">Unggah Bukti Transfer</h3>
+                      <p className="text-xs text-muted font-medium mt-1">Klik atau *drag-and-drop* file ke area ini</p>
+                      <div className="flex items-center justify-center gap-2 mt-3 text-[10px] font-bold text-muted uppercase tracking-widest">
+                        <span className="bg-surface-2 px-2 py-0.5 rounded border border-border/50">JPG</span>
+                        <span className="bg-surface-2 px-2 py-0.5 rounded border border-border/50">PNG</span>
+                        <span className="bg-surface-2 px-2 py-0.5 rounded border border-border/50">PDF</span>
+                        <span>(Max: 5MB)</span>
+                      </div>
                     </div>
+
                     <input
                       id="proof-upload"
                       type="file"
@@ -485,53 +557,88 @@ function CheckoutForm() {
               </div>
             </div>
 
-            {/* Right: Order Summary */}
+            {/* Right: Order Summary (Receipt Style) */}
             <div className="lg:col-span-2">
-              <div className="glass rounded-2xl p-6 sticky top-28">
-                <h3 className="text-lg font-semibold mb-4">Ringkasan Order</h3>
+              <div className="sticky top-28">
+                <div className="relative p-6 bg-surface-2/60 backdrop-blur-xl rounded-3xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.12)] overflow-hidden">
+                  {/* Decorative Ticket Edges (Receipt Look) */}
+                  <div className="absolute -left-4 top-1/2 w-8 h-8 bg-background rounded-full border-r border-border/50" />
+                  <div className="absolute -right-4 top-1/2 w-8 h-8 bg-background rounded-full border-l border-border/50" />
+                  <div className="absolute left-6 right-6 top-1/2 border-t-2 border-dashed border-border/40" />
 
-                <div className="space-y-3 mb-6">
-                  <div className="p-3 bg-surface-2 rounded-xl border border-border">
-                    <p className="text-sm font-medium">{order.title}</p>
-                    <p className="text-xs text-muted mt-1">{order.service?.name || 'Layanan'}</p>
-                  </div>
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">Ringkasan</span> Order
+                  </h3>
 
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted">Subtotal</span>
-                      <span>{formatCurrency(order.price)}</span>
-                    </div>
-                    {order.discount > 0 && (
-                      <div className="flex justify-between text-accent-green">
-                        <span>Diskon</span>
-                        <span>-{formatCurrency(order.discount)}</span>
+                  <div className="space-y-4 mb-8">
+                    <div className="p-4 bg-background/50 rounded-2xl border border-border/50">
+                      <p className="text-sm font-bold text-foreground mb-1">{order.title}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-primary/10 text-primary-light text-[10px] font-bold rounded uppercase tracking-wider">
+                          {order.service?.name || 'Layanan'}
+                        </span>
                       </div>
-                    )}
-                    <hr className="border-border" />
-                    <div className="flex justify-between font-bold text-lg">
-                      <span>Total</span>
-                      <span className="gradient-text">{formatCurrency(orderTotal)}</span>
+                    </div>
+
+                    <div className="space-y-3 px-1 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted font-medium">Subtotal</span>
+                        <span className="font-semibold">{formatCurrency(order.price)}</span>
+                      </div>
+                      {order.discount > 0 && (
+                        <div className="flex justify-between items-center text-accent-green">
+                          <span className="font-medium">Diskon</span>
+                          <span className="font-bold">-{formatCurrency(order.discount)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                <div className="p-3 bg-surface-2 rounded-xl border border-border mb-4">
-                  <p className="text-xs text-muted mb-1">Order ID</p>
-                  <p className="font-mono text-sm font-medium">{order.order_number}</p>
-                </div>
+                  {/* Spacer for dashed line */}
+                  <div className="h-8" />
 
-                <div className="space-y-2 text-xs text-muted">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-accent-green" />
-                    Garansi 100% uang kembali
+                  <div className="px-1 mb-8">
+                    <div className="flex justify-between items-end mb-1">
+                      <span className="text-sm font-bold text-muted">Total Pembayaran</span>
+                    </div>
+                    <div className="flex justify-end">
+                      <div className="relative">
+                        <span className="absolute -inset-2 bg-primary/20 blur-lg rounded-full animate-pulse" />
+                        <span className="relative text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary-light">
+                          {formatCurrency(orderTotal)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-accent" />
-                    Konfirmasi admin 5–30 menit
+
+                  <div className="p-4 bg-background/50 rounded-2xl border border-border/50 mb-6 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Order ID</p>
+                      <p className="font-mono text-xs font-bold">{order.order_number}</p>
+                    </div>
+                    <QrCode className="w-8 h-8 text-muted/30" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4 text-green-400" />
-                    Support 24/7 via WhatsApp
+
+                  <div className="space-y-3 pt-4 border-t border-border/50">
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-surface hover:bg-surface-2 transition-colors border border-transparent hover:border-border/50 cursor-default">
+                      <div className="p-2 bg-green-500/10 rounded-lg shrink-0">
+                        <Shield className="w-4 h-4 text-green-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-foreground">Garansi 100% Aman</p>
+                        <p className="text-[10px] text-muted">Dana ditahan hingga order selesai.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-surface hover:bg-surface-2 transition-colors border border-transparent hover:border-border/50 cursor-default">
+                      <div className="p-2 bg-yellow-500/10 rounded-lg shrink-0">
+                        <Clock className="w-4 h-4 text-yellow-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-foreground">Verifikasi Cepat</p>
+                        <p className="text-[10px] text-muted">Konfirmasi admin dalam 5–30 menit.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

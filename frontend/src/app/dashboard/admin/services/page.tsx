@@ -279,7 +279,7 @@ export default function AdminServicesPage() {
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] text-muted uppercase font-bold tracking-widest">Total Orders</p>
-                                <p className="font-bold italic">{service.total_orders.toLocaleString()}+</p>
+                                <p className="font-bold italic">{service.total_orders.toLocaleString('id-ID')}+</p>
                             </div>
                         </div>
                     </motion.div>

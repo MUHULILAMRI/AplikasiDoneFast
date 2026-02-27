@@ -122,14 +122,16 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">No. WhatsApp</label>
+              <label className="block text-sm font-medium mb-2" title="Wajib digunakan agar Joki atau Admin mudah menghubungi Anda">
+                No. WhatsApp <span className="text-red-400">*</span> <span className="text-[10px] text-muted font-normal">(Wajib Aktif)</span>
+              </label>
               <div className="relative">
                 <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="08123456789"
+                  placeholder="08123456789 (Akan digunakan untuk chat)"
                   required
                   className="w-full pl-12 pr-4 py-3 bg-surface-2 border border-border rounded-xl text-foreground placeholder:text-muted focus:outline-none focus:border-primary/50 transition-colors"
                 />

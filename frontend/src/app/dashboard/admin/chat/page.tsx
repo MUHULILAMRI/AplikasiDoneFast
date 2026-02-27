@@ -196,6 +196,7 @@ export default function AdminChatPage() {
 
   function selectChat(conv: Conversation) {
     setSelectedChat(conv);
+    setMessages([]); // Clear previous messages immediately
     loadMessages(conv.orderId);
     // Clear unread for this conversation
     setConversations((prev) =>
@@ -256,8 +257,8 @@ export default function AdminChatPage() {
                   key={conv.id}
                   onClick={() => selectChat(conv)}
                   className={`w-full flex items-center gap-3 p-4 hover:bg-surface-2 transition-colors ${selectedChat?.id === conv.id
-                      ? 'bg-surface-2 border-l-2 border-primary'
-                      : ''
+                    ? 'bg-surface-2 border-l-2 border-primary'
+                    : ''
                     }`}
                 >
                   <div className="relative">
@@ -381,8 +382,8 @@ export default function AdminChatPage() {
                     )}
                     <div
                       className={`max-w-[70%] ${isMine
-                          ? 'bg-gradient-to-r from-primary to-primary-light text-white rounded-2xl rounded-br-md'
-                          : 'bg-surface-2 border border-border rounded-2xl rounded-bl-md'
+                        ? 'bg-gradient-to-r from-primary to-primary-light text-white rounded-2xl rounded-br-md'
+                        : 'bg-surface-2 border border-border rounded-2xl rounded-bl-md'
                         } px-4 py-3`}
                     >
                       {!isMine && (

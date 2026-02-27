@@ -331,9 +331,26 @@ export default function JokiOrdersPage() {
             <p className="text-sm text-muted mb-4">{selectedOrder.description as string}</p>
 
             <div className="space-y-3 mb-6">
-              <div className="flex justify-between p-3 bg-surface-2 rounded-xl">
-                <span className="text-sm text-muted">Customer</span>
-                <span className="text-sm font-medium">{(selectedOrder.customer ?? (selectedOrder.user as Record<string, unknown>)?.name ?? '') as string}</span>
+              <div className="flex flex-col p-3 bg-surface-2 rounded-xl">
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-sm text-muted">Customer</span>
+                  <span className="text-sm font-medium">{(selectedOrder.customer ?? (selectedOrder.user as Record<string, unknown>)?.name ?? '') as string}</span>
+                </div>
+                {Boolean((selectedOrder.user as Record<string, unknown>)?.phone) && (
+                  <div className="flex justify-between items-center w-full mt-2 pt-2 border-t border-border/50">
+                    <span className="text-xs text-muted">WhatsApp</span>
+                    <a
+                      href={`https://wa.me/${String((selectedOrder.user as Record<string, unknown>)?.phone).replace(/^0/, '62').replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-green-400 hover:text-green-300 font-bold inline-flex items-center gap-1 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20"
+                      title="Chat via WhatsApp"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      Chat WhatsApp
+                    </a>
+                  </div>
+                )}
               </div>
               <div className="flex justify-between p-3 bg-surface-2 rounded-xl">
                 <span className="text-sm text-muted">Kategori</span>

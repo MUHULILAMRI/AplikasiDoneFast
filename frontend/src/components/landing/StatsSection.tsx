@@ -33,7 +33,7 @@ function AnimatedNumber({ value, suffix }: { value: number; suffix: string }) {
 
   return (
     <span>
-      {count.toLocaleString()}{suffix}
+      {count.toLocaleString('id-ID')}{suffix}
     </span>
   );
 }
