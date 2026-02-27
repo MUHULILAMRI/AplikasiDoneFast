@@ -3,6 +3,7 @@
 // ============================================
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
 import { requireRole, apiSuccess, apiError } from '@/lib/auth';
 
 export async function POST(
