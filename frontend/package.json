@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate --schema=prisma/schema.prisma && next build",
+    "prebuild": "npx prisma generate --schema=prisma/schema.prisma",
+    "build": "npx prisma generate --schema=prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate --schema=prisma/schema.prisma"
+    "postinstall": "npx prisma generate --schema=prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^6.7.0",

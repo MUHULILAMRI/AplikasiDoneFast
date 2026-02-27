@@ -4,6 +4,7 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireRole, apiSuccess, apiError } from '@/lib/auth';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
     try {
