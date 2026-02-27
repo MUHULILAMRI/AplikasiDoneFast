@@ -4,8 +4,9 @@ import { authenticateRequest, apiSuccess, apiError } from '@/lib/auth';
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
         const auth = await authenticateRequest(req);
         if ('error' in auth) return auth.error;
@@ -21,13 +22,13 @@ export async function POST(
         }
 
         const order = await prisma.order.findUnique({
-            where: { id: params.id },
+            where: { id },
         });
 
         if (!order) return apiError('Order tidak ditemukan', 404);
 
         const updatedOrder = await prisma.order.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 price: Number(price),
                 difficulty: difficulty || order.difficulty,
