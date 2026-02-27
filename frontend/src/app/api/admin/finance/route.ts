@@ -2,12 +2,14 @@
 // GET /api/admin/finance — finance & transaction report
 // ============================================
 import { NextRequest } from 'next/server';
+import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 import { requireRole, apiSuccess, apiError } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
   try {
+    await headers(); // Force dynamic
     const auth = await requireRole(req, 'ADMIN');
     if ('error' in auth) return auth.error;
 

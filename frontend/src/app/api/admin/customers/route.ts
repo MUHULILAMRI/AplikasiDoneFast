@@ -2,12 +2,14 @@
 // GET /api/admin/customers — fetch all customers with stats
 // ============================================
 import { NextRequest } from 'next/server';
+import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { requireRole, apiSuccess, apiError } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
     try {
+        await headers(); // Force dynamic
         const auth = await requireRole(req, 'ADMIN');
         if ('error' in auth) return auth.error;
 

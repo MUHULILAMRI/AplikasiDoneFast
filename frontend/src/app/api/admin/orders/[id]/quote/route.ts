@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { authenticateRequest, apiSuccess, apiError } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
@@ -7,6 +8,7 @@ export async function POST(
     req: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
+    await headers(); // Extra precaution for Next.js 15 build
     const { id } = await context.params;
     try {
         const auth = await authenticateRequest(req);
