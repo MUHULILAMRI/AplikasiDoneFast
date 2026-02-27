@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Tambahkan ini juga sebagai langkah darurat terakhir
   },
+  serverExternalPackages: ['@prisma/client'],
   async headers() {
     return [
       {
