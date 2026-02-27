@@ -1,4 +1,14 @@
+import { execSync } from "child_process";
 import type { NextConfig } from "next";
+
+// Force generate Prisma Client before Next.js build starts
+// This is a common fix for "Prisma did not initialize yet" errors on Vercel
+try {
+  console.log("Generating Prisma Client...");
+  execSync("npx prisma generate --schema=./prisma/schema.prisma", { stdio: "inherit" });
+} catch (e) {
+  console.warn("Prisma generate failed during next.config initialization:", e);
+}
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -8,7 +18,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Tambahkan ini juga sebagai langkah darurat terakhir
   },
-  serverExternalPackages: ['@prisma/client'],
+  serverExternalPackages: ['@prisma/client', '.prisma'],
   async headers() {
     return [
       {
