@@ -26,13 +26,13 @@ export async function POST(req: NextRequest) {
       // fallback
       try {
         const jsonFallback = `[
-          {"id":"dana","label":"DANA","icon":"Wallet","number":"082291220759","color":"from-blue-500 to-cyan-500"},
-          {"id":"ovo","label":"OVO","icon":"Wallet","number":"082291220759","color":"from-purple-600 to-purple-400"},
-          {"id":"gopay","label":"GoPay","icon":"Wallet","number":"082291220759","color":"from-green-500 to-emerald-500"},
-          {"id":"shopeepay","label":"ShopeePay","icon":"Wallet","number":"082291220759","color":"from-orange-500 to-red-500"},
-          {"id":"bank_bca","label":"Bank BCA","icon":"Building","number":"082291220759","color":"from-blue-800 to-blue-600"},
-          {"id":"bank_bri","label":"Bank BRI","icon":"Building","number":"082291220759","color":"from-blue-600 to-blue-400"},
-          {"id":"seabank","label":"SeaBank","icon":"Building","number":"082291220759","color":"from-teal-500 to-cyan-500"}
+          {"id":"dana","label":"DANA","icon":"Wallet","number":"082291220759","holder":"MUH. ULIL AMRI","color":"from-blue-500 to-cyan-500"},
+          {"id":"ovo","label":"OVO","icon":"Wallet","number":"082291220759","holder":"MUH. ULIL AMRI","color":"from-purple-600 to-purple-400"},
+          {"id":"gopay","label":"GoPay","icon":"Wallet","number":"082291220759","holder":"MUH. ULIL AMRI","color":"from-green-500 to-emerald-500"},
+          {"id":"shopeepay","label":"ShopeePay","icon":"Wallet","number":"082291220759","holder":"MUH. ULIL AMRI","color":"from-orange-500 to-red-500"},
+          {"id":"bank_bca","label":"Bank BCA","icon":"Building","number":"082291220759","holder":"MUH. ULIL AMRI","color":"from-blue-800 to-blue-600"},
+          {"id":"bank_bri","label":"Bank BRI","icon":"Building","number":"082291220759","holder":"MUH. ULIL AMRI","color":"from-blue-600 to-blue-400"},
+          {"id":"seabank","label":"SeaBank","icon":"Building","number":"082291220759","holder":"RESKI ANUGRAH SARI","color":"from-teal-500 to-cyan-500"}
         ]`;
         validPaymentMethods = JSON.parse(jsonFallback);
       } catch (e) { }
@@ -114,8 +114,9 @@ function generatePaymentInfo(method: string, amount: number) {
       return {
         type: 'bank_transfer',
         banks: [
-          { bank: 'BRI', account_number: '082291220759', account_name: 'DoneFast' },
-          { bank: 'SeaBank', account_number: '082291220759', account_name: 'DoneFast' },
+          { bank: 'BCA', account_number: '082291220759', account_name: 'MUH. ULIL AMRI' },
+          { bank: 'BRI', account_number: '082291220759', account_name: 'MUH. ULIL AMRI' },
+          { bank: 'SeaBank', account_number: '082291220759', account_name: 'RESKI ANUGRAH SARI' },
         ],
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       };

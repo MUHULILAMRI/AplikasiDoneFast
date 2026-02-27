@@ -30,7 +30,7 @@ Kamu bisa cek estimasi harga langsung di halaman order. Harga sudah termasuk rev
 💳 **E-Wallet**: DANA, OVO, GoPay, ShopeePay
 🏦 **Transfer Bank**: BRI, SeaBank
 
-Semua ke nomor/rekening: **082291220759** a.n. DoneFast
+Semua ke nomor/rekening: **082291220759** (BRI/BCA/E-Wallet a.n. **MUH. ULIL AMRI**, SeaBank a.n. **RESKI ANUGRAH SARI**)
 
 Langkah pembayaran:
 1️⃣ Pilih metode pembayaran saat checkout

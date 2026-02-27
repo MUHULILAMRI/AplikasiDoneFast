@@ -428,9 +428,9 @@ function CheckoutForm() {
                           </div>
                           <p className="text-xs font-medium text-muted mt-2 border-l-2 border-primary/30 pl-2">
                             a.n. <span className="text-foreground">
-                              {selectedPayment.label.toLowerCase().includes('seabank')
+                              {selectedPayment.holder || (selectedPayment.label.toLowerCase().includes('seabank')
                                 ? 'RESKI ANUGRAH SARI'
-                                : 'MUH. ULIL AMRI'}
+                                : 'MUH. ULIL AMRI')}
                             </span>
                           </p>
                         </div>
